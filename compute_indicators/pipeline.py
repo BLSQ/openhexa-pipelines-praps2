@@ -113,7 +113,7 @@ def update_dataset(cdr_dir: str, wait: bool) -> bool:
 
     src_files = [Path(cdr_dir, "indicateurs.parquet"), Path(cdr_dir, "indicateurs.xlsx")]
 
-    dataset = workspace.get_dataset("indicateurs-cdr-16328b")
+    dataset = workspace.get_dataset("indicateurs-cdr-353681")
     latest = dataset.latest_version
 
     if latest:

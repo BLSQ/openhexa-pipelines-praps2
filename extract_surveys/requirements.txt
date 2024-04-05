@@ -1,0 +1,3 @@
+openhexa.toolbox>=0.2
+connectorx
+xlsxwriter

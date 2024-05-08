@@ -17,14 +17,14 @@ from sqlalchemy import create_engine
 SURVEYS = [
     ("aHjhdBWbXzGf6d9bYm88Hq", "indicateurs_regionaux"),
     ("aCHSjHDuphcc2KjCgqAyxP", "indicateurs_pays"),
-    ("a67gG6NTYHrxeEJkRDzk3q", "marches_a_betail"),
-    ("a8VM8vXBA5vC2RvZ5g3MK4", "parcs_de_vaccination"),
-    ("aQiqocfeJbxAd4zRehcXEP", "points_d_eau"),
-    ("aRSr2SdzvpPEmnn6cJZXhK", "unites_veterinaires"),
-    ("a59pdEM78L8WRtTTfpHGom", "fourrage_cultive"),
-    ("a6gNzGeR2ScNZtYapFhTxJ", "sous_projets_innovants"),
-    ("aEBHXt3rCHYxifEZLBMPU4", "gestion_durable_des_paysages"),
-    ("aKjQ9Ak8rsPhtgxMup8mm6", "activites_generatrices_de_revenus"),
+    ("aCgpBnsy39TLqiSsujMiYA", "marches_a_betail"),
+    ("aLWDMaeZnBHoZvoUHgy9WY", "parcs_de_vaccination"),
+    ("aEsmYrLyFiN9o9PK3TtbP3", "points_d_eau"),
+    ("aFFCKJrPKvAoYXqtFRft3i", "unites_veterinaires"),
+    ("aG7DZmn6TK6SR6eyD2f3bj", "fourrage_cultive"),
+    ("aPMh3Q2LRKZQ3uxT4cBK2s", "sous_projets_innovants"),
+    ("aCtqjcw7etkEQXoBf6VMX7", "gestion_durable_des_paysages"),
+    ("aAv4xBADqLzQw5h9fNDRts", "activites_generatrices_de_revenus"),
 ]
 
 

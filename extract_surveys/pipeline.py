@@ -37,13 +37,20 @@ SURVEYS = [
     default="data/kobo",
 )
 @parameter(
+    "push_to_db",
+    name="Mettre à jour la base de données",
+    help="Mettre à jour la base de données avec les fiches extraites",
+    type=bool,
+    default=True,
+)
+@parameter(
     "overwrite",
     name="Ecraser les données existantes",
     help="Re-télécharger l'ensemble des fiches et remplacer les fichiers existants",
     type=bool,
     default=True,
 )
-def extract_surveys(output_dir: str, overwrite: bool):
+def extract_surveys(output_dir: str, push_to_db: bool, overwrite: bool):
     con = workspace.custom_connection("kobo_api")
     output_dir = Path(workspace.files_path, output_dir)
 
@@ -56,7 +63,10 @@ def extract_surveys(output_dir: str, overwrite: bool):
         task1 = True
 
     task2 = transform(src_dir=Path(output_dir, "raw"), output_dir=output_dir, wait=task1)
-    push(output_dir, wait=task2)
+
+    if push_to_db:
+        push(output_dir, wait=task2)
+
     if get_environment() == Environment.CLOUD_PIPELINE:
         update_datasets(output_dir, wait=task2)
 

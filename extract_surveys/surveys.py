@@ -243,18 +243,18 @@ def serialize(value):
     """Serialize structs and lists columns into JSON."""
     if type(value) in (pl.Struct, dict):
         if value:
-            return json.dumps(value)
+            return json.dumps(value, ensure_ascii=False)
         else:
             return None
     elif type(value) is pl.Series:
         value = value.to_list()
         if len(value):
-            return json.dumps(value)
+            return json.dumps(value, ensure_ascii=False)
         else:
             return None
     elif type(value) is pl.List:
         if len(value):
-            return json.dumps(value)
+            return json.dumps(value, ensure_ascii=False)
         else:
             return None
     else:

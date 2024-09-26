@@ -21,7 +21,7 @@ jobs:
       - name: Configure OpenHEXA CLI
         uses: blsq/openhexa-cli-action@v1
         with:
-          workspace: "lifenet-6cd90a"
+          workspace: "praps-f5e786"
           token: ${{ secrets.OH_TOKEN }}
       - name: Push pipeline to OpenHEXA
         run: |

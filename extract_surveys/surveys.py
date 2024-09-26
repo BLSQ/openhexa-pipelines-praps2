@@ -160,9 +160,7 @@ def group_pairs(pairs: Sequence[Tuple[int, int]]) -> Sequence[List[int]]:
     return groups
 
 
-def reassign_ids(
-    src_indexes: Sequence[int], duplicate_groups: Sequence[List[int]]
-) -> Dict[int, int]:
+def reassign_ids(src_indexes: Sequence[int], duplicate_groups: Sequence[List[int]]) -> Dict[int, int]:
     """Re-assign unique IDs of duplicates to 1st of the group.
 
     Return a mapping.
@@ -271,19 +269,17 @@ def transform_survey(df: pl.DataFrame, name: str):
             .map_elements(lambda x: x.get("label"), return_dtype=str)
             .alias("validation_status"),
             pl.col("_geolocation")
-            .map_elements(lambda x: x[0] if all(x) else None)
+            .map_elements(lambda x: x[0] if all(x) else None, return_dtype=float)
             .alias("LATITUDE"),
             pl.col("_geolocation")
-            .map_elements(lambda x: x[1] if all(x) else None)
+            .map_elements(lambda x: x[1] if all(x) else None, return_dtype=float)
             .alias("LONGITUDE"),
         ]
     )
 
     # rename geographic columns with standard names
     if name in GEO_COLUMNS:
-        df = df.with_columns(
-            [pl.col(field).alias(f"level_{lvl}") for lvl, field in GEO_COLUMNS[name].items()]
-        )
+        df = df.with_columns([pl.col(field).alias(f"level_{lvl}") for lvl, field in GEO_COLUMNS[name].items()])
 
     # rename state and progress columns with consistent names
     if STATE.get(name) and STATE.get(name) in df.columns:
@@ -315,9 +311,7 @@ def transform_survey(df: pl.DataFrame, name: str):
     return df
 
 
-def concatenate_snapshots(
-    df: pl.DataFrame, column_unique_id: str = "infrastructure_id"
-) -> pl.DataFrame:
+def concatenate_snapshots(df: pl.DataFrame, column_unique_id: str = "infrastructure_id") -> pl.DataFrame:
     """Create a dataframe that concatenate yearly snapshots of mapped infrastructures."""
     snapshots = []
     for year in range(df["DATE"].min().year, df["DATE"].max().year + 1):

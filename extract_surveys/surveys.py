@@ -76,6 +76,9 @@ PICTURES = {
     "parcs_de_vaccination": ["LVAC8a", "LVAC8b", "LVAC8c", "LVAC8d"],
     "points_d_eau": ["LPE8a", "LPE8b", "LPE8c", "LPE8d"],
     "unites_veterinaires": ["LUV7a", "LUV7b", "LUV7c", "LUV7d"],
+    "fourrages_cultives": ["LFC7a", "LFC7b", "LFC7c", "LFC7d"],
+    "gestion_durable_des_paysages": ["LODURA7a", "LODURA7b", "LODURA7c", "LODURA7d"],
+    "activites_generatrices_de_revenus": ["LAGR7a", "LAGR7b", "LAGR7c", "LAGR7d"],
 }
 
 GEO_COLUMNS = {
@@ -261,6 +264,14 @@ def serialize(value):
         raise ValueError(f"Cannot serialize object type {type(value)}")
 
 
+def _add_url_prefix(fname: str) -> str:
+    """Replace file names of attachments with public URLs."""
+    if fname:
+        return f"https://storage.googleapis.com/hexa-public-praps/{fname}"
+    else:
+        return "https://storage.googleapis.com/hexa-public-praps/placeholder.png"
+
+
 def transform_survey(df: pl.DataFrame, name: str):
     # parse _validation_status and _geolocation columns
     df = df.with_columns(
@@ -295,6 +306,12 @@ def transform_survey(df: pl.DataFrame, name: str):
             if df[c].dtype in [pl.Struct, pl.List]
         ]
     )
+
+    # replace picture urls with public ones
+    columns = PICTURES.get(name)
+    if columns:
+        for col in columns:
+            df = df.with_columns(pl.col(col).map_elements(_add_url_prefix, skip_nulls=False, return_dtype=pl.String))
 
     if name in ("indicateurs_regionaux", "indicateurs_pays"):
         return df

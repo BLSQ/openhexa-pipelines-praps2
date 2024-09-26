@@ -44,7 +44,7 @@ SURVEYS = [
     default=True,
 )
 def extract_surveys(output_dir: str, overwrite: bool):
-    con = workspace.custom_connection("KOBO_API")
+    con = workspace.custom_connection("kobo_api")
     output_dir = Path(workspace.files_path, output_dir)
 
     for subdir in ("raw", "surveys", "geo", "metadata", "snapshots"):
@@ -67,12 +67,8 @@ def download(con: CustomConnection, output_dir: Path) -> List[Path]:
     api.authenticate(con.token)
 
     for uid, name in SURVEYS:
-        surveys.download_survey_data(
-            api, uid, name, dst_file=Path(output_dir, "raw", f"{name}.parquet")
-        )
-        surveys.download_survey_fields(
-            api, uid, name, dst_file=Path(output_dir, "metadata", f"{name}_fields.parquet")
-        )
+        surveys.download_survey_data(api, uid, name, dst_file=Path(output_dir, "raw", f"{name}.parquet"))
+        surveys.download_survey_fields(api, uid, name, dst_file=Path(output_dir, "metadata", f"{name}_fields.parquet"))
 
     return True
 
@@ -130,9 +126,7 @@ def push(src_dir: str, wait: bool) -> bool:
             current_run.log_info(f"Writing database table {name}")
 
             df = pl.read_parquet(Path(src_dir, "snapshots", f"{name}_snapshots.parquet"))
-            df.write_database(
-                f"{name}_snapshots", workspace.database_url, if_table_exists="replace"
-            )
+            df.write_database(f"{name}_snapshots", workspace.database_url, if_table_exists="replace")
             current_run.add_database_output(f"{name}_snapshots")
             current_run.log_info(f"Writing database table {name}_snapshots")
 
@@ -182,9 +176,7 @@ def update_datasets(src_dir: str, wait: bool) -> bool:
         latest = dataset.latest_version
 
         if latest:
-            src_hashes = [
-                hashlib.md5(open(src_file, "rb").read()).hexdigest() for src_file in src_files
-            ]
+            src_hashes = [hashlib.md5(open(src_file, "rb").read()).hexdigest() for src_file in src_files]
             dst_hashes = [get_md5(f.download_url) for f in latest.files]
 
             if set(src_hashes) == set(dst_hashes):

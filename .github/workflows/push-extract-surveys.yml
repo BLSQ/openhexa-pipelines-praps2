@@ -1,0 +1,31 @@
+name: Push "extract surveys" pipeline
+
+on:
+  push:
+    paths:
+      - ".github/workflows/push-extract-surveys.yml"
+      - "extract_surveys/**"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - uses: actions/setup-python@v2
+        with:
+          python-version: "3.11"
+
+      - name: Configure OpenHEXA CLI
+        uses: blsq/openhexa-cli-action@v1
+        with:
+          workspace: "lifenet-6cd90a"
+          token: ${{ secrets.OH_TOKEN }}
+      - name: Push pipeline to OpenHEXA
+        run: |
+          openhexa pipelines push extract_surveys \
+            -n ${{ github.sha }} \
+            -l "https://github.com/BLSQ/openhexa-pipelines-praps2/commit/${{ github.sha }}" \
+            --yes

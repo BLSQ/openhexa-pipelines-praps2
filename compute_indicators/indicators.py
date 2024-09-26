@@ -893,143 +893,160 @@ def iri_16(
     dataframe
     """
 
-    df1 = (
-        parcs_de_vaccination.filter(pl.col("IGVAC9") == "Oui")
-        .with_columns(
-            pl.when(
-                (pl.col("IGVAC11") > 0)
-                & (pl.col("IGVAC12") >= (pl.col("IGVAC11") * 0.15))
-                & (
-                    (pl.col("IGVAC12A").list.contains("Président (e)"))
-                    | (pl.col("IGVAC12A").list.contains("Sécrétaire (principal-e)"))
-                    | (pl.col("IGVAC12A").list.contains("Trésorier (ère)"))
+    if "IGVAC12A" in parcs_de_vaccination.columns:
+        df1 = (
+            parcs_de_vaccination.filter(pl.col("IGVAC9") == "Oui")
+            .with_columns(
+                pl.when(
+                    (pl.col("IGVAC11") > 0)
+                    & (pl.col("IGVAC12") >= (pl.col("IGVAC11") * 0.15))
+                    & (
+                        (pl.col("IGVAC12A").list.contains("Président (e)"))
+                        | (pl.col("IGVAC12A").list.contains("Sécrétaire (principal-e)"))
+                        | (pl.col("IGVAC12A").list.contains("Trésorier (ère)"))
+                    )
                 )
+                .then(1)
+                .otherwise(0)
+                .alias("councils with women")
             )
-            .then(1)
-            .otherwise(0)
-            .alias("councils with women")
+            .select(
+                [
+                    pl.lit("IRI-16").alias("indicator_code"),
+                    pl.col("DATE").alias("date"),
+                    pl.lit(6).alias("level"),
+                    pl.col("LVAC1").alias("country"),
+                    pl.col("LVAC2").alias("region"),
+                    pl.col("LVAC3").alias("province"),
+                    pl.col("LVAC4").alias("commune"),
+                    pl.col("LVAC5").alias("localite"),
+                    pl.col("LVAC6").alias("coordinates"),
+                    pl.col("councils with women").alias("numerator"),
+                    pl.lit(1).alias("denominator"),
+                    pl.col("councils with women").alias("value"),
+                ]
+            )
         )
-        .select(
-            [
-                pl.lit("IRI-16").alias("indicator_code"),
-                pl.col("DATE").alias("date"),
-                pl.lit(6).alias("level"),
-                pl.col("LVAC1").alias("country"),
-                pl.col("LVAC2").alias("region"),
-                pl.col("LVAC3").alias("province"),
-                pl.col("LVAC4").alias("commune"),
-                pl.col("LVAC5").alias("localite"),
-                pl.col("LVAC6").alias("coordinates"),
-                pl.col("councils with women").alias("numerator"),
-                pl.lit(1).alias("denominator"),
-                pl.col("councils with women").alias("value"),
-            ]
-        )
-    )
 
-    df2 = (
-        gestion_durable.filter(pl.col("CRDURA11") == "Oui")
-        .with_columns(
-            pl.when(
-                (pl.col("CRDURA13") > 0)
-                & (pl.col("CRDURA14") >= (pl.col("CRDURA13") * 0.15))
-                & (
-                    (pl.col("CRDURA17").list.contains("Président (e)"))
-                    | (pl.col("CRDURA17").list.contains("Sécrétaire (principal-e)"))
-                    | (pl.col("CRDURA17").list.contains("Trésorier (ère)"))
+    else:
+        df1 = None
+
+    if "CRDURA17" in gestion_durable.columns:
+        df2 = (
+            gestion_durable.filter(pl.col("CRDURA11") == "Oui")
+            .with_columns(
+                pl.when(
+                    (pl.col("CRDURA13") > 0)
+                    & (pl.col("CRDURA14") >= (pl.col("CRDURA13") * 0.15))
+                    & (
+                        (pl.col("CRDURA17").list.contains("Président (e)"))
+                        | (pl.col("CRDURA17").list.contains("Sécrétaire (principal-e)"))
+                        | (pl.col("CRDURA17").list.contains("Trésorier (ère)"))
+                    )
                 )
+                .then(1)
+                .otherwise(0)
+                .alias("councils with women")
             )
-            .then(1)
-            .otherwise(0)
-            .alias("councils with women")
+            .select(
+                [
+                    pl.lit("IRI-16").alias("indicator_code"),
+                    pl.col("DATE").alias("date"),
+                    pl.lit(6).alias("level"),
+                    pl.col("LODURA1").alias("country"),
+                    pl.col("LODURA2").alias("region"),
+                    pl.col("LODURA3").alias("province"),
+                    pl.col("LODURA4").alias("commune"),
+                    pl.col("LODURA5").alias("localite"),
+                    pl.col("LODURA6").alias("coordinates"),
+                    pl.col("councils with women").alias("numerator"),
+                    pl.lit(1).alias("denominator"),
+                    pl.col("councils with women").alias("value"),
+                ]
+            )
         )
-        .select(
-            [
-                pl.lit("IRI-16").alias("indicator_code"),
-                pl.col("DATE").alias("date"),
-                pl.lit(6).alias("level"),
-                pl.col("LODURA1").alias("country"),
-                pl.col("LODURA2").alias("region"),
-                pl.col("LODURA3").alias("province"),
-                pl.col("LODURA4").alias("commune"),
-                pl.col("LODURA5").alias("localite"),
-                pl.col("LODURA6").alias("coordinates"),
-                pl.col("councils with women").alias("numerator"),
-                pl.lit(1).alias("denominator"),
-                pl.col("councils with women").alias("value"),
-            ]
-        )
-    )
 
-    df3 = (
-        points_d_eau.filter(pl.col("IGPE6") == "Oui")
-        .with_columns(
-            pl.when(
-                (pl.col("IGPE10") > 0)
-                & (pl.col("IGPE11") >= (pl.col("IGPE10") * 0.15))
-                & (
-                    (pl.col("IGPE11A3").list.contains("Président (e)"))
-                    | (pl.col("IGPE11A3").list.contains("Sécrétaire (principal-e)"))
-                    | (pl.col("IGPE11A3").list.contains("Trésorier (ère)"))
+    else:
+        df2 = None
+
+    if "IGPE11A3" in points_d_eau.columns:
+        df3 = (
+            points_d_eau.filter(pl.col("IGPE6") == "Oui")
+            .with_columns(
+                pl.when(
+                    (pl.col("IGPE10") > 0)
+                    & (pl.col("IGPE11") >= (pl.col("IGPE10") * 0.15))
+                    & (
+                        (pl.col("IGPE11A3").list.contains("Président (e)"))
+                        | (pl.col("IGPE11A3").list.contains("Sécrétaire (principal-e)"))
+                        | (pl.col("IGPE11A3").list.contains("Trésorier (ère)"))
+                    )
                 )
+                .then(1)
+                .otherwise(0)
+                .alias("councils with women")
             )
-            .then(1)
-            .otherwise(0)
-            .alias("councils with women")
+            .select(
+                [
+                    pl.lit("IRI-16").alias("indicator_code"),
+                    pl.col("DATE").alias("date"),
+                    pl.lit(6).alias("level"),
+                    pl.col("LPE1").alias("country"),
+                    pl.col("LPE2").alias("region"),
+                    pl.col("LPE3").alias("province"),
+                    pl.col("LPE4").alias("commune"),
+                    pl.col("LPE5").alias("localite"),
+                    pl.col("LPE7").alias("coordinates"),
+                    pl.col("councils with women").alias("numerator"),
+                    pl.lit(1).alias("denominator"),
+                    pl.col("councils with women").alias("value"),
+                ]
+            )
         )
-        .select(
-            [
-                pl.lit("IRI-16").alias("indicator_code"),
-                pl.col("DATE").alias("date"),
-                pl.lit(6).alias("level"),
-                pl.col("LPE1").alias("country"),
-                pl.col("LPE2").alias("region"),
-                pl.col("LPE3").alias("province"),
-                pl.col("LPE4").alias("commune"),
-                pl.col("LPE5").alias("localite"),
-                pl.col("LPE7").alias("coordinates"),
-                pl.col("councils with women").alias("numerator"),
-                pl.lit(1).alias("denominator"),
-                pl.col("councils with women").alias("value"),
-            ]
-        )
-    )
 
-    df4 = (
-        marches_a_betail.filter(pl.col("IGMB5") == "Oui")
-        .with_columns(
-            pl.when(
-                (pl.col("IGMB7") > 0)
-                & (pl.col("IGMB8") >= (pl.col("IGMB7") * 0.15))
-                & (
-                    (pl.col("IGMBA").list.contains("Président (e)"))
-                    | (pl.col("IGMBA").list.contains("Sécrétaire (principal-e)"))
-                    | (pl.col("IGMBA").list.contains("Trésorier (ère)"))
+    else:
+        df3 = None
+
+    if "IGMBA" in marches_a_betail.columns:
+        df4 = (
+            marches_a_betail.filter(pl.col("IGMB5") == "Oui")
+            .with_columns(
+                pl.when(
+                    (pl.col("IGMB7") > 0)
+                    & (pl.col("IGMB8") >= (pl.col("IGMB7") * 0.15))
+                    & (
+                        (pl.col("IGMBA").list.contains("Président (e)"))
+                        | (pl.col("IGMBA").list.contains("Sécrétaire (principal-e)"))
+                        | (pl.col("IGMBA").list.contains("Trésorier (ère)"))
+                    )
                 )
+                .then(1)
+                .otherwise(0)
+                .alias("councils with women")
             )
-            .then(1)
-            .otherwise(0)
-            .alias("councils with women")
+            .select(
+                [
+                    pl.lit("IRI-16").alias("indicator_code"),
+                    pl.col("DATE").alias("date"),
+                    pl.lit(6).alias("level"),
+                    pl.col("LMB1").alias("country"),
+                    pl.col("LMB2").alias("region"),
+                    pl.col("LMB3").alias("province"),
+                    pl.col("LMB4").alias("commune"),
+                    pl.col("LMB5").alias("localite"),
+                    pl.col("LMB6").alias("coordinates"),
+                    pl.col("councils with women").alias("numerator"),
+                    pl.lit(1).alias("denominator"),
+                    pl.col("councils with women").alias("value"),
+                ]
+            )
         )
-        .select(
-            [
-                pl.lit("IRI-16").alias("indicator_code"),
-                pl.col("DATE").alias("date"),
-                pl.lit(6).alias("level"),
-                pl.col("LMB1").alias("country"),
-                pl.col("LMB2").alias("region"),
-                pl.col("LMB3").alias("province"),
-                pl.col("LMB4").alias("commune"),
-                pl.col("LMB5").alias("localite"),
-                pl.col("LMB6").alias("coordinates"),
-                pl.col("councils with women").alias("numerator"),
-                pl.lit(1).alias("denominator"),
-                pl.col("councils with women").alias("value"),
-            ]
-        )
-    )
 
-    df = pl.concat([df1, df2, df3, df4])
+    else:
+        df4 = None
+
+    dataframes = [df for df in [df1, df2, df3, df4] if df is not None]
+    df = pl.concat(dataframes)
     logging.info(f"IRI-16: computed {len(df)} values")
     return df
 

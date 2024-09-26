@@ -246,13 +246,13 @@ def serialize(value):
             return json.dumps(value)
         else:
             return None
-    elif type(value) == pl.Series:
+    elif type(value) is pl.Series:
         value = value.to_list()
         if len(value):
             return json.dumps(value)
         else:
             return None
-    elif type(value) == pl.List:
+    elif type(value) is pl.List:
         if len(value):
             return json.dumps(value)
         else:

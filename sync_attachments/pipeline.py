@@ -103,7 +103,7 @@ def upload_attachments(input_dir: Path, dst_bucket: str, wait: bool = False):
         f.write(workspace.gcs_connection("hexa-public-praps").service_account_key)
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "/tmp/gcs.json"
     client = storage.Client()
-    bucket = client.Bucket(dst_bucket)
+    bucket = client.bucket(dst_bucket)
 
     dst_files = [b.name for b in bucket.list_blobs()]
 

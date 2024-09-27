@@ -24,12 +24,21 @@ from openhexa.sdk.utils import Environment, get_environment
     type=str,
     default="data/cdr",
 )
-def compute_indicators(survey_dir: str, cdr_dir: str):
+@parameter(
+    "push_to_db",
+    name="Mettre à jour la base de données",
+    help="Mettre à jour la base de données avec les indicateurs calculés",
+    type=bool,
+    default=True,
+)
+def compute_indicators(survey_dir: str, cdr_dir: str, push_to_db: bool):
     df = compute(
         survey_dir=Path(workspace.files_path, survey_dir),
         cdr_dir=Path(workspace.files_path, cdr_dir),
     )
-    push(df)
+
+    if push_to_db:
+        push(df)
 
     if get_environment() == Environment.CLOUD_PIPELINE:
         update_dataset(Path(workspace.files_path, cdr_dir), wait=df)
@@ -49,13 +58,9 @@ def compute(survey_dir: Path, cdr_dir: Path):
         activites=pl.read_parquet(Path(survey_dir, "activites_generatrices_de_revenus.parquet")),
         praps1=pl.read_csv(Path(cdr_dir, "cdr_praps1_initial_values.csv")),
     )
-    current_run.log_info(
-        f"Computed {len(df['indicator_code'].unique()) - 1} indicators ({len(df)} values)"
-    )
+    current_run.log_info(f"Computed {len(df['indicator_code'].unique()) - 1} indicators ({len(df)} values)")
 
-    df = indicators.join_metadata(
-        df, indicators_metadata=pl.read_csv(Path(cdr_dir, "indicators_metadata.csv"))
-    )
+    df = indicators.join_metadata(df, indicators_metadata=pl.read_csv(Path(cdr_dir, "indicators_metadata.csv")))
     current_run.log_info(f"Joined metadata ({len(df)} values)")
 
     df = indicators.spatial_aggregation(df)
@@ -89,12 +94,8 @@ def push(df: pl.DataFrame) -> bool:
     df.write_database("indicators", connection=workspace.database_url, if_table_exists="replace")
     current_run.log_info(f"Writing to database table `indicators` ({len(df)} rows)")
 
-    df.write_database(
-        "PRAPS2_Indicators_Aggregated", connection=workspace.database_url, if_table_exists="replace"
-    )
-    current_run.log_info(
-        f"Writing to database table `PRAPS2_Indicators_Aggregated` ({len(df)} rows)"
-    )
+    df.write_database("PRAPS2_Indicators_Aggregated", connection=workspace.database_url, if_table_exists="replace")
+    current_run.log_info(f"Writing to database table `PRAPS2_Indicators_Aggregated` ({len(df)} rows)")
 
     if get_environment() == Environment.CLOUD_PIPELINE:
         current_run.add_database_output("indicators")
@@ -117,9 +118,7 @@ def update_dataset(cdr_dir: str, wait: bool) -> bool:
     latest = dataset.latest_version
 
     if latest:
-        src_hashes = [
-            hashlib.md5(open(src_file, "rb").read()).hexdigest() for src_file in src_files
-        ]
+        src_hashes = [hashlib.md5(open(src_file, "rb").read()).hexdigest() for src_file in src_files]
         dst_hashes = [get_md5(f.download_url) for f in latest.files]
 
         if set(src_hashes) == set(dst_hashes):

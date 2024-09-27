@@ -46,6 +46,7 @@ def compute_indicators(survey_dir: str, cdr_dir: str, push_to_db: bool):
 
 @compute_indicators.task
 def compute(survey_dir: Path, cdr_dir: Path):
+    praps1 = indicators.load_praps1_data(Path(cdr_dir, "cdr_praps1_initial_values.csv"))
     df = indicators.combine_indicators(
         indicateurs_regionaux=pl.read_parquet(Path(survey_dir, "indicateurs_regionaux.parquet")),
         indicateurs_pays=pl.read_parquet(Path(survey_dir, "indicateurs_pays.parquet")),
@@ -56,7 +57,7 @@ def compute(survey_dir: Path, cdr_dir: Path):
         marches_a_betail=pl.read_parquet(Path(survey_dir, "marches_a_betail.parquet")),
         sous_projets=pl.read_parquet(Path(survey_dir, "sous_projets_innovants.parquet")),
         activites=pl.read_parquet(Path(survey_dir, "activites_generatrices_de_revenus.parquet")),
-        praps1=pl.read_csv(Path(cdr_dir, "cdr_praps1_initial_values.csv")),
+        praps1=praps1,
     )
     current_run.log_info(f"Computed {len(df['indicator_code'].unique()) - 1} indicators ({len(df)} values)")
 

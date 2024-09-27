@@ -61,6 +61,7 @@ def download_attachments(input_dir: Path, output_dir: Path):
     """Download attachments for a given survey."""
     if not output_dir.exists():
         output_dir.mkdir(parents=True, exist_ok=True)
+    dst_files = [f.name for f in output_dir.iterdir()]
 
     con = workspace.custom_connection("kobo_api")
     api = Api(url=con.url)
@@ -68,19 +69,29 @@ def download_attachments(input_dir: Path, output_dir: Path):
     current_run.log_info("Connected to KoboToolbox API at url: {}".format(con.url))
 
     for survey in SURVEYS:
-        fname = input_dir / f"{survey}.parquet"
-        if not fname.exists():
+        # load survey data as dataframe
+        # links to attachments are stored in the `_attachments` column
+        df_fname = input_dir / f"{survey}.parquet"
+        if not df_fname.exists():
             current_run.log_warning(f"File not found for survey `{survey}`")
+        df = pl.read_parquet(df_fname)
 
-        df = pl.read_parquet(fname)
+        # multiple attachments can be stored in the same cell
         for attachments in df["_attachments"]:
             attachments = json.loads(attachments)
             for attachment in attachments:
                 url = attachment.get("download_url")
                 if url:
-                    if "placeholder.png" not in url:
-                        _download(url, output_dir, api)
-                        current_run.log_info(f"Downloaded `{url}`")
+                    # urls with placeholder images do not need to be downloaded
+                    if "placeholder.png" in url:
+                        continue
+                    # get filename and check if it has already been downloaded
+                    fname = attachment.get("filename").split("/")[-1]
+                    if fname in dst_files:
+                        continue
+                    # download attachment
+                    _download(url, output_dir, api)
+                    current_run.log_info(f"Downloaded `{url}`")
 
     return True
 

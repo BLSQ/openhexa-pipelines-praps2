@@ -1,3 +1,4 @@
+import json
 import os
 from pathlib import Path
 
@@ -42,15 +43,6 @@ def sync_attachments(input_dir: str, output_dir: str, bucket: str):
     upload_attachments(output_dir, bucket, wait=task1)
 
 
-def authenticate() -> storage.Client:
-    """Authenticate to GCS bucket."""
-    with open("/tmp/gcs.json", "w") as f:
-        f.write(workspace.gcs_connection("hexa-public-praps").service_account_key)
-    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "/tmp/gcs.json"
-    current_run.log_info("Authenticated to GCS bucket `hexa-public-praps`")
-    return storage.Client()
-
-
 def _download(url: str, dst_dir: Path, api: Api):
     with api.session.get(url, stream=True) as r:
         if "content-disposition" not in r.headers:
@@ -81,8 +73,8 @@ def download_attachments(input_dir: Path, output_dir: Path):
             current_run.log_warning(f"File not found for survey `{survey}`")
 
         df = pl.read_parquet(fname)
-        for row in df.iter_rows(named=True):
-            attachments = row.get("_attachments")
+        for attachments in df["_attachments"]:
+            attachments = json.loads(attachments)
             for attachment in attachments:
                 url = attachment.get("download_url")
                 if url:

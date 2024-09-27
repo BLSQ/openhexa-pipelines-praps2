@@ -12,7 +12,7 @@ SURVEYS = [
     "parcs_de_vaccination",
     "points_d_eau",
     "unites_veterinaires",
-    "fourrages_cultives",
+    "fourrages_cultive",
     "gestion_durable_des_paysages",
     "activites_generatrices_de_revenus",
 ]

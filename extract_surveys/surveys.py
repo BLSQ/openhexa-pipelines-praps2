@@ -79,6 +79,7 @@ PICTURES = {
     "fourrages_cultives": ["LFC7a", "LFC7b", "LFC7c", "LFC7d"],
     "gestion_durable_des_paysages": ["LODURA7a", "LODURA7b", "LODURA7c", "LODURA7d"],
     "activites_generatrices_de_revenus": ["LAGR7a", "LAGR7b", "LAGR7c", "LAGR7d"],
+    "sous_projets_innovants": ["LINO7a", "LINO7b", "LINO7c", "LINO7d"]
 }
 
 GEO_COLUMNS = {

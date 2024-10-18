@@ -15,6 +15,7 @@ SURVEYS = [
     "fourrage_cultive",
     "gestion_durable_des_paysages",
     "activites_generatrices_de_revenus",
+    "sous_projets_innovants"
 ]
 
 

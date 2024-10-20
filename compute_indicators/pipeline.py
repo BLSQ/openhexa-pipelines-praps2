@@ -63,23 +63,18 @@ def compute(survey_dir: Path, cdr_dir: Path):
 
     df = indicators.join_metadata(df, indicators_metadata=pl.read_csv(Path(cdr_dir, "indicators_metadata.csv")))
     current_run.log_info(f"Joined metadata ({len(df)} values)")
-    df.write_parquet(Path(cdr_dir, "df1.parquet"))
 
     df = indicators.spatial_aggregation(df)
     current_run.log_info(f"Applied spatial aggregation ({len(df)} values)")
-    df.write_parquet(Path(cdr_dir, "df2.parquet"))
 
     df = indicators.fill_missing_values(df)
     current_run.log_info(f"Filled missing values ({len(df)} values)")
-    df.write_parquet(Path(cdr_dir, "df3.parquet"))
 
     df = indicators.cumulate_indicators(df)
     current_run.log_info(f"Cumulated indicators ({len(df)} values)")
-    df.write_parquet(Path(cdr_dir, "df4.parquet"))
 
     df = indicators.retro_compatibility(df)
     current_run.log_info(f"Modified columns for retro-compatibility ({len(df)} values)")
-    df.write_parquet(Path(cdr_dir, "df5.parquet"))
 
     fp_parquet = Path(cdr_dir, "indicateurs.parquet")
     fp_xlsx = Path(cdr_dir, "indicateurs.xlsx")

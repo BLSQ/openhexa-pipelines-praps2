@@ -13,7 +13,13 @@ from openhexa.sdk import current_run, parameter, pipeline, workspace
     type=str,
     default="data/targets/CDR_Targets.csv",
 )
-@parameter("cdr_dir", name="Dossier CDR", help="Répertoire où le CDR est enregistré", type=str, default="data/cdr")
+@parameter(
+    "cdr_dir",
+    name="Dossier CDR",
+    help="Répertoire où le CDR est enregistré",
+    type=str,
+    default="data/cdr",
+)
 @parameter(
     "dst_file",
     name="Fichier de sortie",
@@ -107,11 +113,15 @@ SECTIONS = [
 ]
 
 
-def get_target(df: pl.DataFrame, indicator: str, country: str, year: int) -> int | float:
+def get_target(
+    df: pl.DataFrame, indicator: str, country: str, year: int
+) -> int | float:
     """Get indicator target for a given country and year."""
     try:
         row = df.row(
-            by_predicate=(pl.col("Code") == indicator) & (pl.col("Pays") == country) & (pl.col("année") == year),
+            by_predicate=(pl.col("Code") == indicator)
+            & (pl.col("Pays") == country)
+            & (pl.col("année") == year),
             named=True,
         )
     except pl.exceptions.NoRowsReturnedError:
@@ -154,72 +164,143 @@ def generate(targets_fp: Path, cdr_dir: Path, dst_file: Path):
     workbook = xlsxwriter.Workbook(dst_file.absolute().as_posix())
     sheet = workbook.add_worksheet("Cadre de résultats")
 
-    default_fmt = workbook.add_format({"text_wrap": 1, "align": "left", "valign": "vcenter"})
+    default_fmt = workbook.add_format(
+        {"text_wrap": 1, "align": "left", "valign": "vcenter"}
+    )
 
-    country_fmt = workbook.add_format({"text_wrap": 1, "valign": "vcenter", "align": "left"})
+    country_fmt = workbook.add_format(
+        {"text_wrap": 1, "valign": "vcenter", "align": "left"}
+    )
 
-    value_fmt = workbook.add_format({"font_size": 10, "align": "center", "valign": "vcenter"})
+    value_fmt = workbook.add_format(
+        {"font_size": 10, "align": "center", "valign": "vcenter"}
+    )
 
-    target_fmt = workbook.add_format({"font_size": 10, "align": "center", "valign": "vcenter", "font_color": "#9e9e9e"})
+    target_fmt = workbook.add_format(
+        {
+            "font_size": 10,
+            "align": "center",
+            "valign": "vcenter",
+            "font_color": "#9e9e9e",
+        }
+    )
 
     section_header_fmt = workbook.add_format(
-        {"bold": 1, "fg_color": "#fff9c4", "text_wrap": 1, "align": "left", "valign": "vcenter"}
+        {
+            "bold": 1,
+            "fg_color": "#fff9c4",
+            "text_wrap": 1,
+            "align": "left",
+            "valign": "vcenter",
+        }
     )
 
     section_header_year_fmt = workbook.add_format(
-        {"bold": 1, "fg_color": "#fff9c4", "text_wrap": 1, "align": "center", "valign": "vcenter"}
+        {
+            "bold": 1,
+            "fg_color": "#fff9c4",
+            "text_wrap": 1,
+            "align": "center",
+            "valign": "vcenter",
+        }
     )
 
     component_fmt = workbook.add_format(
-        {"bold": 1, "fg_color": "#bbdefb", "text_wrap": 1, "align": "left", "valign": "vcenter"}
+        {
+            "bold": 1,
+            "fg_color": "#bbdefb",
+            "text_wrap": 1,
+            "align": "left",
+            "valign": "vcenter",
+        }
     )
 
-    indicator_fmt = workbook.add_format({"bold": 1, "text_wrap": 1, "align": "left", "valign": "vcenter"})
+    indicator_fmt = workbook.add_format(
+        {"bold": 1, "text_wrap": 1, "align": "left", "valign": "vcenter"}
+    )
 
-    ratio_fmt = workbook.add_format({"align": "center", "valign": "vcenter", "font_size": 10, "num_format": 9})
+    ratio_fmt = workbook.add_format(
+        {"align": "center", "valign": "vcenter", "font_size": 10, "num_format": 9}
+    )
 
     row = 0
     col = 0
     for section in SECTIONS:
         col = 0
-        sheet.write(row, col, section["name"], section_header_fmt)
-        sheet.write(row, col + 1, section["label"], section_header_fmt)
-        sheet.write(row, col + 2, "Indicateur corporate", section_header_fmt)
-        sheet.write(row, col + 3, "Unité de mesure", section_header_fmt)
-        sheet.write(row, col + 4, "Pays", section_header_fmt)
-        sheet.write(row, col + 5, "2021", section_header_year_fmt)
-        sheet.write(row, col + 6, "2022", section_header_year_fmt)
-        sheet.write(row, col + 7, "%", section_header_year_fmt)
-        sheet.write(row, col + 8, "2023", section_header_year_fmt)
-        sheet.write(row, col + 9, "%", section_header_year_fmt)
-        sheet.write(row, col + 10, "2024", section_header_year_fmt)
-        sheet.write(row, col + 11, "%", section_header_year_fmt)
-        sheet.write(row, col + 12, "2025", section_header_year_fmt)
-        sheet.write(row, col + 13, "%", section_header_year_fmt)
-        sheet.write(row, col + 14, "2026", section_header_year_fmt)
-        sheet.write(row, col + 15, "%", section_header_year_fmt)
-        sheet.write(row, col + 16, "2027", section_header_year_fmt)
-        sheet.write(row, col + 17, "%", section_header_year_fmt)
-        row += 1
+
+        # section headers
+        sheet.merge_range(row, col, row + 1, col, section["name"], section_header_fmt)
+        sheet.merge_range(
+            row, col + 1, row + 1, col + 1, section["label"], section_header_fmt
+        )
+        sheet.merge_range(
+            row, col + 2, row + 1, col + 2, "Indicateur corporate", section_header_fmt
+        )
+        sheet.merge_range(
+            row, col + 3, row + 1, col + 3, "Unité de mesure", section_header_fmt
+        )
+        sheet.merge_range(row, col + 4, row + 1, col + 4, "Pays", section_header_fmt)
+
+        # section headers: years
+        sheet.merge_range(row, 5, row, 5 + 1, "2021", section_header_year_fmt)
+        sheet.write(row + 1, 5, "Cible", section_header_year_fmt)
+        sheet.write(row + 1, 6, "Valeur", section_header_year_fmt)
+
+        sheet.merge_range(row, 7, row, 7 + 2, "2022", section_header_year_fmt)
+        sheet.write(row + 1, 7, "Cible", section_header_year_fmt)
+        sheet.write(row + 1, 8, "Valeur", section_header_year_fmt)
+        sheet.write(row + 1, 9, "%", section_header_year_fmt)
+
+        sheet.merge_range(row, 10, row, 10 + 2, "2023", section_header_year_fmt)
+        sheet.write(row + 1, 10, "Cible", section_header_year_fmt)
+        sheet.write(row + 1, 11, "Valeur", section_header_year_fmt)
+        sheet.write(row + 1, 12, "%", section_header_year_fmt)
+
+        sheet.merge_range(row, 13, row, 13 + 2, "2024", section_header_year_fmt)
+        sheet.write(row + 1, 13, "Cible", section_header_year_fmt)
+        sheet.write(row + 1, 14, "Valeur", section_header_year_fmt)
+        sheet.write(row + 1, 15, "%", section_header_year_fmt)
+
+        sheet.merge_range(row, 16, row, 16 + 2, "2025", section_header_year_fmt)
+        sheet.write(row + 1, 16, "Cible", section_header_year_fmt)
+        sheet.write(row + 1, 17, "Valeur", section_header_year_fmt)
+        sheet.write(row + 1, 18, "%", section_header_year_fmt)
+
+        sheet.merge_range(row, 19, row, 19 + 2, "2026", section_header_year_fmt)
+        sheet.write(row + 1, 19, "Cible", section_header_year_fmt)
+        sheet.write(row + 1, 20, "Valeur", section_header_year_fmt)
+        sheet.write(row + 1, 21, "%", section_header_year_fmt)
+
+        sheet.merge_range(row, 22, row, 22 + 2, "2027", section_header_year_fmt)
+        sheet.write(row + 1, 22, "Cible", section_header_year_fmt)
+        sheet.write(row + 1, 23, "Valeur", section_header_year_fmt)
+        sheet.write(row + 1, 24, "%", section_header_year_fmt)
+
+        row += 2
 
         for component in section["components"]:
             col = 0
-            sheet.merge_range(row, col, row, col + 17, component["name"], component_fmt)
+            sheet.merge_range(row, col, row, col + 29, component["name"], component_fmt)
             row += 1
 
             for indicator in component["indicators"]:
-                if indicator.startswith("Reg"):
-                    nrows = 1 * 2  # regional only (value + target)
-                else:
-                    nrows = 7 * 2  # all countries + regional (value + target)
-
                 col = 0
 
-                sheet.merge_range(row, col, row + nrows - 1, col, indicator, indicator_fmt)
+                if indicator.startswith("Reg"):
+                    nrows = 1  # regional only
+                    sheet.write(row, 0, indicator, indicator_fmt)
+                else:
+                    nrows = 7  # all countries + regional
+                    sheet.merge_range(
+                        row, col, row + nrows - 1, col, indicator, indicator_fmt
+                    )
+
                 col += 1
 
                 try:
-                    label = meta.row(by_predicate=pl.col("code") == indicator, named=True)["designation"]
+                    label = meta.row(
+                        by_predicate=pl.col("code") == indicator, named=True
+                    )["designation"]
                 except pl.exceptions.NoRowsReturnedError:
                     label = None
 
@@ -228,24 +309,23 @@ def generate(targets_fp: Path, cdr_dir: Path, dst_file: Path):
                 except IndexError:
                     unit = None
 
-                sheet.merge_range(row, col, row + nrows - 1, col, label, default_fmt)
-                col += 1
-
-                sheet.merge_range(row, col, row + nrows - 1, col, "", default_fmt)
-                col += 1
-
-                sheet.merge_range(row, col, row + nrows - 1, col, unit, default_fmt)
-                col += 1
+                for text in [label, "", unit]:
+                    if nrows > 1:
+                        sheet.merge_range(
+                            row, col, row + nrows - 1, col, text, default_fmt
+                        )
+                    else:
+                        sheet.write(row, col, text, default_fmt)
+                    col += 1
 
                 col_ = col
                 for country_name, country_code in COUNTRIES.items():
                     if indicator.startswith("Reg") and country_name != "Régional":
                         continue
 
-                    sheet.merge_range(row, col, row + 1, col, country_name, country_fmt)
+                    sheet.write(row, col, country_name, country_fmt)
                     col += 1
 
-                    row_ = row
                     for year in range(2021, 2028):
                         value = get_value(indicators, indicator, country_code, year)
                         target = get_target(targets, indicator, country_code, year)
@@ -253,23 +333,22 @@ def generate(targets_fp: Path, cdr_dir: Path, dst_file: Path):
                         if unit == "Pourcentage" and value is not None:
                             value *= 100
 
-                        sheet.write(row, col, value, value_fmt)
-                        row += 1
                         sheet.write(row, col, target, target_fmt)
+                        col += 1
+                        sheet.write(row, col, value, value_fmt)
 
                         if year >= 2022:
                             col += 1
                             if value is not None and target:
-                                ratio = round(value / target, 2)
+                                ratio = round(value / target, 1)
                             else:
                                 ratio = None
-                            sheet.merge_range(row - 1, col, row, col, ratio, ratio_fmt)
+                            sheet.write(row, col, ratio, ratio_fmt)
 
-                        row = row_
                         col += 1
 
                     col = col_
-                    row += 2
+                    row += 1
 
                 label = None
                 unit = None
@@ -287,6 +366,7 @@ def generate(targets_fp: Path, cdr_dir: Path, dst_file: Path):
 
     current_run.log_info(f"Saved {dst_file.name}")
     current_run.add_file_output(dst_file.absolute().as_posix())
+
 
 if __name__ == "__main__":
     generate_excel_cdr()

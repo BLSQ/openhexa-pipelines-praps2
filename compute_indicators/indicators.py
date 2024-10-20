@@ -1418,7 +1418,7 @@ def join_metadata(df: pl.DataFrame, indicators_metadata: pl.DataFrame) -> pl.Dat
 def aggregate_counts(df: pl.DataFrame, agg_columns: Sequence[str]) -> pl.DataFrame:
     return (
         df.filter(pl.col("unit").is_in(["count", "weight", "surface"]))
-        .group_by(by=agg_columns)
+        .group_by(agg_columns)
         .agg(pl.col("value").sum())
     )
 
@@ -1428,7 +1428,7 @@ def aggregate_ratios(df: pl.DataFrame, agg_columns: Sequence[str]) -> pl.DataFra
         df.filter(
             (pl.col("unit") == "percent") & (pl.col("numerator").is_not_null()) & (pl.col("denominator").is_not_null())
         )
-        .group_by(by=agg_columns)
+        .group_by(agg_columns)
         .agg([pl.col("numerator").sum(), pl.col("denominator").sum()])
         .with_columns((pl.col("numerator") / pl.col("denominator")).alias("value"))
     )
@@ -1437,7 +1437,7 @@ def aggregate_ratios(df: pl.DataFrame, agg_columns: Sequence[str]) -> pl.DataFra
 def aggregate_ratios_without_num_den(df: pl.DataFrame, agg_columns: Sequence[str]) -> pl.DataFrame:
     return (
         df.filter((pl.col("unit") == "percent") & ((pl.col("numerator").is_null()) | (pl.col("denominator").is_null())))
-        .group_by(by=agg_columns)
+        .group_by(agg_columns)
         .agg(pl.col("value").mean())
     )
 
@@ -1445,7 +1445,7 @@ def aggregate_ratios_without_num_den(df: pl.DataFrame, agg_columns: Sequence[str
 def aggregate_bools(df: pl.DataFrame, agg_columns: Sequence[str]) -> pl.DataFrame:
     return (
         df.filter(pl.col("unit") == "boolean")
-        .group_by(by=agg_columns)
+        .group_by(agg_columns)
         .agg(pl.col("value").cast(pl.Boolean).all().cast(pl.Float64))
     )
 

@@ -1463,10 +1463,11 @@ def spatial_aggregation(df: pl.DataFrame) -> pl.DataFrame:
         "country",
         "region",
     ]
-    counts = aggregate_counts(df=df, agg_columns=AGG_COLUMNS)
-    ratios = aggregate_ratios(df=df, agg_columns=AGG_COLUMNS)
-    ratios_ = aggregate_ratios_without_num_den(df=df, agg_columns=AGG_COLUMNS)
-    bools = aggregate_bools(df=df, agg_columns=AGG_COLUMNS)
+    df_lvl6 = df.filter(pl.col("level") == 6)
+    counts = aggregate_counts(df=df_lvl6, agg_columns=AGG_COLUMNS)
+    ratios = aggregate_ratios(df=df_lvl6, agg_columns=AGG_COLUMNS)
+    ratios_ = aggregate_ratios_without_num_den(df=df_lvl6, agg_columns=AGG_COLUMNS)
+    bools = aggregate_bools(df=df_lvl6, agg_columns=AGG_COLUMNS)
     per_region = pl.concat([counts, ratios, ratios_, bools], how="diagonal_relaxed").with_columns(
         pl.lit(3).alias("level")
     )
@@ -1474,10 +1475,11 @@ def spatial_aggregation(df: pl.DataFrame) -> pl.DataFrame:
 
     # from lvl3 (region) to lvl2 (country)
     agg_columns = [c for c in AGG_COLUMNS if c != "region"]
-    counts = aggregate_counts(df=df, agg_columns=agg_columns)
-    ratios = aggregate_ratios(df=df, agg_columns=agg_columns)
-    ratios_ = aggregate_ratios_without_num_den(df=df, agg_columns=agg_columns)
-    bools = aggregate_bools(df=df, agg_columns=agg_columns)
+    df_lvl3 = df.filter(pl.col("level") == 3)
+    counts = aggregate_counts(df=df_lvl3, agg_columns=agg_columns)
+    ratios = aggregate_ratios(df=df_lvl3, agg_columns=agg_columns)
+    ratios_ = aggregate_ratios_without_num_den(df=df_lvl3, agg_columns=agg_columns)
+    bools = aggregate_bools(df=df_lvl3, agg_columns=agg_columns)
     per_country = pl.concat([counts, ratios, ratios_, bools], how="diagonal_relaxed").with_columns(
         pl.lit(2).alias("level")
     )
@@ -1485,10 +1487,11 @@ def spatial_aggregation(df: pl.DataFrame) -> pl.DataFrame:
 
     # from lvl2 (country) to lvl1 (region)
     agg_columns = [c for c in AGG_COLUMNS if c not in ("region", "country")]
-    counts = aggregate_counts(df=df, agg_columns=agg_columns)
-    ratios = aggregate_ratios(df=df, agg_columns=agg_columns)
-    ratios_ = aggregate_ratios_without_num_den(df=df, agg_columns=agg_columns)
-    bools = aggregate_bools(df=df, agg_columns=agg_columns)
+    df_lvl2 = df.filter(pl.col("level") == 2)
+    counts = aggregate_counts(df=df_lvl2, agg_columns=agg_columns)
+    ratios = aggregate_ratios(df=df_lvl2, agg_columns=agg_columns)
+    ratios_ = aggregate_ratios_without_num_den(df=df_lvl2, agg_columns=agg_columns)
+    bools = aggregate_bools(df=df_lvl2, agg_columns=agg_columns)
     regional = pl.concat([counts, ratios, ratios_, bools], how="diagonal_relaxed").with_columns(
         [pl.lit(1).alias("level"), pl.lit("Régional").alias("country")]
     )

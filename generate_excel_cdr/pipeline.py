@@ -287,3 +287,6 @@ def generate(targets_fp: Path, cdr_dir: Path, dst_file: Path):
 
     current_run.log_info(f"Saved {dst_file.name}")
     current_run.add_file_output(dst_file.absolute().as_posix())
+
+if __name__ == "__main__":
+    generate_excel_cdr()

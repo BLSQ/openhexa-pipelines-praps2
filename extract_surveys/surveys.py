@@ -38,7 +38,9 @@ def download_survey_fields(api: Api, uid: str, name: str, dst_file: Path) -> Pat
     mapping = get_fields_mapping(survey)
     mapping.write_parquet(dst_file)
     mapping.write_excel(Path(dst_file.as_posix().replace(".parquet", ".xlsx")))
-    current_run.log_info(f"Downloaded {name} survey fields metadata ({len(mapping)} entries)")
+    current_run.log_info(
+        f"Downloaded {name} survey fields metadata ({len(mapping)} entries)"
+    )
     return dst_file
 
 
@@ -76,15 +78,22 @@ PICTURES = {
     "parcs_de_vaccination": ["LVAC8a", "LVAC8b", "LVAC8c", "LVAC8d"],
     "points_d_eau": ["LPE8a", "LPE8b", "LPE8c", "LPE8d"],
     "unites_veterinaires": ["LUV7a", "LUV7b", "LUV7c", "LUV7d"],
-    "fourrages_cultives": ["LFC7a", "LFC7b", "LFC7c", "LFC7d"],
+    "fourrage_cultive": ["LFC7a", "LFC7b", "LFC7c", "LFC7d"],
     "gestion_durable_des_paysages": ["LODURA7a", "LODURA7b", "LODURA7c", "LODURA7d"],
     "activites_generatrices_de_revenus": ["LAGR7a", "LAGR7b", "LAGR7c", "LAGR7d"],
-    "sous_projets_innovants": ["LINO7a", "LINO7b", "LINO7c", "LINO7d"]
+    "sous_projets_innovants": ["LINO7a", "LINO7b", "LINO7c", "LINO7d"],
 }
 
 GEO_COLUMNS = {
     "indicateurs_pays": {2: "DATE4"},
-    "marches_a_betail": {2: "LMB1", 3: "LMB2", 4: "LMB3", 5: "LMB4", 6: "LMB5", 7: "LMB6"},
+    "marches_a_betail": {
+        2: "LMB1",
+        3: "LMB2",
+        4: "LMB3",
+        5: "LMB4",
+        6: "LMB5",
+        7: "LMB6",
+    },
     "parcs_de_vaccination": {
         2: "LVAC1",
         3: "LVAC2",
@@ -94,8 +103,22 @@ GEO_COLUMNS = {
         7: "LVAC6",
     },
     "points_d_eau": {2: "LPE1", 3: "LPE2", 4: "LPE3", 5: "LPE4", 6: "LPE5", 7: "LPE7"},
-    "unites_veterinaires": {2: "LUV1", 3: "LUV2", 4: "LUV3", 5: "LUV4", 6: "LUV5", 7: "LUV6"},
-    "fourrage_cultive": {2: "LFC1", 3: "LFC2", 4: "LFC3", 5: "LFC4", 6: "LFC5", 7: "LFC6"},
+    "unites_veterinaires": {
+        2: "LUV1",
+        3: "LUV2",
+        4: "LUV3",
+        5: "LUV4",
+        6: "LUV5",
+        7: "LUV6",
+    },
+    "fourrage_cultive": {
+        2: "LFC1",
+        3: "LFC2",
+        4: "LFC3",
+        5: "LFC4",
+        6: "LFC5",
+        7: "LFC6",
+    },
     "sous_projets_innovants": {
         2: "LINO1",
         3: "LINO2",
@@ -164,7 +187,9 @@ def group_pairs(pairs: Sequence[Tuple[int, int]]) -> Sequence[List[int]]:
     return groups
 
 
-def reassign_ids(src_indexes: Sequence[int], duplicate_groups: Sequence[List[int]]) -> Dict[int, int]:
+def reassign_ids(
+    src_indexes: Sequence[int], duplicate_groups: Sequence[List[int]]
+) -> Dict[int, int]:
     """Re-assign unique IDs of duplicates to 1st of the group.
 
     Return a mapping.
@@ -223,7 +248,9 @@ def identify_duplicates(
         if len(df_) < 2:
             continue
         for row1, row2 in combinations(df_.iter_rows(named=True), 2):
-            if not _check_coords(row1, column_coords) or not _check_coords(row2, column_coords):
+            if not _check_coords(row1, column_coords) or not _check_coords(
+                row2, column_coords
+            ):
                 continue
             lat1 = row1[column_coords]["coordinates"][0]
             lon1 = row1[column_coords]["coordinates"][1]
@@ -291,7 +318,12 @@ def transform_survey(df: pl.DataFrame, name: str):
 
     # rename geographic columns with standard names
     if name in GEO_COLUMNS:
-        df = df.with_columns([pl.col(field).alias(f"level_{lvl}") for lvl, field in GEO_COLUMNS[name].items()])
+        df = df.with_columns(
+            [
+                pl.col(field).alias(f"level_{lvl}")
+                for lvl, field in GEO_COLUMNS[name].items()
+            ]
+        )
 
     # rename state and progress columns with consistent names
     if STATE.get(name) and STATE.get(name) in df.columns:
@@ -312,7 +344,11 @@ def transform_survey(df: pl.DataFrame, name: str):
     columns = PICTURES.get(name)
     if columns:
         for col in columns:
-            df = df.with_columns(pl.col(col).map_elements(_add_url_prefix, skip_nulls=False, return_dtype=pl.String))
+            df = df.with_columns(
+                pl.col(col).map_elements(
+                    _add_url_prefix, skip_nulls=False, return_dtype=pl.String
+                )
+            )
 
     if name in ("indicateurs_regionaux", "indicateurs_pays"):
         return df
@@ -329,7 +365,9 @@ def transform_survey(df: pl.DataFrame, name: str):
     return df
 
 
-def concatenate_snapshots(df: pl.DataFrame, column_unique_id: str = "infrastructure_id") -> pl.DataFrame:
+def concatenate_snapshots(
+    df: pl.DataFrame, column_unique_id: str = "infrastructure_id"
+) -> pl.DataFrame:
     """Create a dataframe that concatenate yearly snapshots of mapped infrastructures."""
     snapshots = []
     for year in range(df["DATE"].min().year, df["DATE"].max().year + 1):

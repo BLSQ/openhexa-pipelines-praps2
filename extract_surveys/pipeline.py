@@ -20,7 +20,7 @@ SURVEYS = [
     ("aCgpBnsy39TLqiSsujMiYA", "marches_a_betail"),
     ("aLWDMaeZnBHoZvoUHgy9WY", "parcs_de_vaccination"),
     ("aEsmYrLyFiN9o9PK3TtbP3", "points_d_eau"),
-    ("aFFCKJrPKvAoYXqtFRft3i", "unites_veterinaires"),
+    ("aNQNnPXKrf8CKJVddw3x3M", "unites_veterinaires"),
     ("aG7DZmn6TK6SR6eyD2f3bj", "fourrage_cultive"),
     ("aPMh3Q2LRKZQ3uxT4cBK2s", "sous_projets_innovants"),
     ("aCtqjcw7etkEQXoBf6VMX7", "gestion_durable_des_paysages"),
@@ -62,7 +62,9 @@ def extract_surveys(output_dir: str, push_to_db: bool, overwrite: bool):
     else:
         task1 = True
 
-    task2 = transform(src_dir=Path(output_dir, "raw"), output_dir=output_dir, wait=task1)
+    task2 = transform(
+        src_dir=Path(output_dir, "raw"), output_dir=output_dir, wait=task1
+    )
 
     if push_to_db:
         push(output_dir, wait=task2)
@@ -77,8 +79,15 @@ def download(con: CustomConnection, output_dir: Path) -> List[Path]:
     api.authenticate(con.token)
 
     for uid, name in SURVEYS:
-        surveys.download_survey_data(api, uid, name, dst_file=Path(output_dir, "raw", f"{name}.parquet"))
-        surveys.download_survey_fields(api, uid, name, dst_file=Path(output_dir, "metadata", f"{name}_fields.parquet"))
+        surveys.download_survey_data(
+            api, uid, name, dst_file=Path(output_dir, "raw", f"{name}.parquet")
+        )
+        surveys.download_survey_fields(
+            api,
+            uid,
+            name,
+            dst_file=Path(output_dir, "metadata", f"{name}_fields.parquet"),
+        )
 
     return True
 
@@ -102,11 +111,17 @@ def transform(src_dir: str, output_dir: str, wait: bool) -> bool:
         geo = to_geodataframe(df.with_columns(pl.col("_geolocation").str.json_decode()))
         geo.to_file(Path(output_dir, "geo", f"{name}.gpkg"), driver="GPKG")
 
-        snapshots = surveys.concatenate_snapshots(df, column_unique_id="infrastructure_id")
-        snapshots.write_parquet(Path(output_dir, "snapshots", f"{name}_snapshots.parquet"))
+        snapshots = surveys.concatenate_snapshots(
+            df, column_unique_id="infrastructure_id"
+        )
+        snapshots.write_parquet(
+            Path(output_dir, "snapshots", f"{name}_snapshots.parquet")
+        )
 
         if get_environment() == Environment.CLOUD_PIPELINE:
-            current_run.add_file_output(Path(output_dir, "surveys", f"{name}.parquet").as_posix())
+            current_run.add_file_output(
+                Path(output_dir, "surveys", f"{name}.parquet").as_posix()
+            )
 
         current_run.log_info(f"Processed survey {name} ({len(df)} values)")
 
@@ -135,8 +150,12 @@ def push(src_dir: str, wait: bool) -> bool:
             current_run.add_database_output(name)
             current_run.log_info(f"Writing database table {name}")
 
-            df = pl.read_parquet(Path(src_dir, "snapshots", f"{name}_snapshots.parquet"))
-            df.write_database(f"{name}_snapshots", workspace.database_url, if_table_exists="replace")
+            df = pl.read_parquet(
+                Path(src_dir, "snapshots", f"{name}_snapshots.parquet")
+            )
+            df.write_database(
+                f"{name}_snapshots", workspace.database_url, if_table_exists="replace"
+            )
             current_run.add_database_output(f"{name}_snapshots")
             current_run.log_info(f"Writing database table {name}_snapshots")
 
@@ -152,7 +171,11 @@ def update_datasets(src_dir: str, wait: bool) -> bool:
         return r.headers["ETag"].replace('"', "")
 
     DATASETS = [
-        ("indicateurs_regionaux", "Indicateurs Régionaux", "indicateurs-regionaux-d8d9d9"),
+        (
+            "indicateurs_regionaux",
+            "Indicateurs Régionaux",
+            "indicateurs-regionaux-d8d9d9",
+        ),
         ("indicateurs_pays", "Indicateurs Nationaux", "indicateurs-nationaux-c99b47"),
         ("fourrage_cultive", "Fourrages Cultivés", "fourrages-cultives-b6f422"),
         (
@@ -165,7 +188,11 @@ def update_datasets(src_dir: str, wait: bool) -> bool:
             "Activités Génératrices de Revenus",
             "activites-generatrices-cadd93",
         ),
-        ("sous_projets_innovants", "Sous-Projets Innovants", "sous-projets-innovants-7c3877"),
+        (
+            "sous_projets_innovants",
+            "Sous-Projets Innovants",
+            "sous-projets-innovants-7c3877",
+        ),
         ("parcs_de_vaccination", "Parcs de vaccination", "parcs-de-vaccination-a6fbd3"),
         ("unites_veterinaires", "Unités vétérinaires", "unites-veterinaires-05ee52"),
         ("marches_a_betail", "Marchés à Bétail", "marches-a-betail-286942"),
@@ -186,13 +213,18 @@ def update_datasets(src_dir: str, wait: bool) -> bool:
         latest = dataset.latest_version
 
         if latest:
-            src_hashes = [hashlib.md5(open(src_file, "rb").read()).hexdigest() for src_file in src_files]
+            src_hashes = [
+                hashlib.md5(open(src_file, "rb").read()).hexdigest()
+                for src_file in src_files
+            ]
             dst_hashes = [get_md5(f.download_url) for f in latest.files]
 
             if set(src_hashes) == set(dst_hashes):
                 continue
 
-        new_version = dataset.create_version(name=datetime.datetime.now().strftime("%Y%m%d_%H%M%S"))
+        new_version = dataset.create_version(
+            name=datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        )
 
         for src_file in src_files:
             new_version.add_file(src_file.as_posix(), src_file.name)

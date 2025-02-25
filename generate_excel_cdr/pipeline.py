@@ -147,6 +147,8 @@ def get_value(df: pl.DataFrame, indicator: str, country: str, year: int) -> int 
         if cum_value is not None and not indicator.startswith("Reg"):
             return cum_value
         else:
+            if isinstance(value, float):
+                return round(value, 1)
             return value
     except pl.exceptions.NoRowsReturnedError:
         return None

@@ -144,7 +144,7 @@ def get_value(df: pl.DataFrame, indicator: str, country: str, year: int) -> int 
         )
         cum_value = row.get("cumulative_value")
         value = row.get("value")
-        if cum_value is not None:
+        if cum_value is not None and not indicator.startswith("Reg"):
             return cum_value
         else:
             return value

@@ -25,7 +25,7 @@ SURVEYS = [
     ("aPMh3Q2LRKZQ3uxT4cBK2s", "sous_projets_innovants"),
     ("aCtqjcw7etkEQXoBf6VMX7", "gestion_durable_des_paysages"),
     ("aAv4xBADqLzQw5h9fNDRts", "activites_generatrices_de_revenus"),
-    ("aEcSkGSLEadq6i5TSTNCjH", "cultures_vivrieres"),
+    # ("aEcSkGSLEadq6i5TSTNCjH", "cultures_vivrieres"),
 ]
 
 
@@ -159,6 +159,25 @@ def push(src_dir: str, wait: bool) -> bool:
             )
             current_run.add_database_output(f"{name}_snapshots")
             current_run.log_info(f"Writing database table {name}_snapshots")
+
+    # mirror new data into old tables (they are still used by Geonode)
+    mapping = {
+        "PRAPS2_Activites_Generatrices_de_Revenus": "activites_generatrices_de_revenus",
+        "PRAPS2_Fourrages_Cultives": "fourrage_cultive",
+        "PRAPS2_Gestion_Durable_des_Paysages": "gestion_durable_des_paysages",
+        "PRAPS2_Marches_a_Betail": "marches_a_betail",
+        "PRAPS2_Points_d_Eau": "points_d_eau",
+        "PRAPS2_Sous_Projets_Innovants": "sous_projets_innovants",
+        "PRAPS2_Unites_Veterinaires": "unites_veterinaires",
+        "PRAPS2_Parcs_de_Vaccination": "parcs_de_vaccination",
+    }
+
+    engine = create_engine(workspace.database_url)
+    for old_table, new_table in mapping.items():
+        new = gpd.read_postgis(
+            f'select * from "{new_table}"', con=engine, geom_col="geometry"
+        )
+        new.to_postgis(old_table, con=engine, if_exists="replace")
 
     return True
 

@@ -147,8 +147,6 @@ def get_value(df: pl.DataFrame, indicator: str, country: str, year: int) -> int 
         if cum_value is not None and not indicator.startswith("Reg"):
             return cum_value
         else:
-            if isinstance(value, float):
-                return round(value, 1)
             return value
     except pl.exceptions.NoRowsReturnedError:
         return None
@@ -175,7 +173,12 @@ def generate(targets_fp: Path, cdr_dir: Path, dst_file: Path):
     )
 
     value_fmt = workbook.add_format(
-        {"font_size": 10, "align": "center", "valign": "vcenter"}
+        {
+            "font_size": 10,
+            "align": "center",
+            "valign": "vcenter",
+            "num_format": "#,##0.#",
+        }
     )
 
     target_fmt = workbook.add_format(
@@ -184,6 +187,7 @@ def generate(targets_fp: Path, cdr_dir: Path, dst_file: Path):
             "align": "center",
             "valign": "vcenter",
             "font_color": "#9e9e9e",
+            "num_format": "#,##0.#",
         }
     )
 
@@ -335,6 +339,18 @@ def generate(targets_fp: Path, cdr_dir: Path, dst_file: Path):
                         if unit == "Pourcentage" and value is not None:
                             value *= 100
 
+                        if unit:
+                            if "millions" in unit.lower():
+                                if value is not None:
+                                    value /= 1000000
+                                if target is not None:
+                                    target /= 1000000
+                            elif "milliers" in unit.lower():
+                                if value is not None:
+                                    value /= 1000
+                                if target is not None:
+                                    target /= 1000
+
                         sheet.write(row, col, target, target_fmt)
                         col += 1
                         sheet.write(row, col, value, value_fmt)
@@ -342,7 +358,7 @@ def generate(targets_fp: Path, cdr_dir: Path, dst_file: Path):
                         if year >= 2022:
                             col += 1
                             if value is not None and target:
-                                ratio = round(value / target, 1)
+                                ratio = round(value / target, 3)
                             else:
                                 ratio = None
                             sheet.write(row, col, ratio, ratio_fmt)

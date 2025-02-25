@@ -47,7 +47,9 @@ def group_pairs(pairs: Sequence[Tuple[int, int]]) -> Sequence[List[int]]:
     return groups
 
 
-def reassign_ids(src_indexes: Sequence[int], duplicate_groups: Sequence[List[int]]) -> Dict[int, int]:
+def reassign_ids(
+    src_indexes: Sequence[int], duplicate_groups: Sequence[List[int]]
+) -> Dict[int, int]:
     """Re-assign unique IDs of duplicates to 1st of the group.
 
     Return a mapping.
@@ -106,7 +108,9 @@ def identify_duplicates(
         if len(df_) < 2:
             continue
         for row1, row2 in combinations(df_.iter_rows(named=True), 2):
-            if not _check_coords(row1, column_coords) or not _check_coords(row2, column_coords):
+            if not _check_coords(row1, column_coords) or not _check_coords(
+                row2, column_coords
+            ):
                 continue
             lat1 = row1[column_coords]["coordinates"][0]
             lon1 = row1[column_coords]["coordinates"][1]
@@ -130,19 +134,16 @@ def ir_1(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
     """IR-1: Taux de couverture vaccinale PPCB."""
     rows = []
 
-    df = indicateurs_pays.filter((pl.col("DATE9").is_null().not_()) & (pl.col("DATE8").is_null().not_()))
+    df = indicateurs_pays.filter(pl.col("DATE11").is_not_null())
 
     for row in df.iter_rows(named=True):
-        if row["DATE9"] > row["DATE8"]:
-            logging.warning('IR-1: vaccinated count is higher than total' f' ({row["DATE4"]}, {row["DATE5"]})')
-
         rows.append(
             {
                 "date": f"{row['DATE5']}-01-01",
                 "level": 2,
                 "country": row["DATE4"],
                 "indicator_code": "IR-1",
-                "value": round(row["DATE9"] / row["DATE8"], 3),
+                "value": row["DATE11"] / 100,
             }
         )
 
@@ -186,7 +187,9 @@ def ir_2(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
 
     df = pl.DataFrame(rows)
 
-    df = df.sort(by="date").with_columns(pl.col("value").cum_sum().alias("cumulated_value").over("country"))
+    df = df.sort(by="date").with_columns(
+        pl.col("value").cum_sum().alias("cumulated_value").over("country")
+    )
 
     logging.info(f"IR-2: computed {len(df)} values")
 
@@ -253,7 +256,9 @@ def ir_3(paysages: pl.DataFrame) -> pl.DataFrame:
     logging.info(f"IR-3: computed {len(rows)} values")
     df = pl.DataFrame(rows)
 
-    df = df.sort(by="date").with_columns(pl.col("value").cum_sum().alias("cumulated_value").over("country"))
+    df = df.sort(by="date").with_columns(
+        pl.col("value").cum_sum().alias("cumulated_value").over("country")
+    )
 
     return df
 
@@ -362,7 +367,11 @@ def iri_3(parcs_de_vaccination: pl.DataFrame) -> pl.DataFrame:
     """
     df = parcs_de_vaccination.filter(
         (pl.col("STVAC5") == "Réception provisoire sans réserve")
-        | ((pl.col("STVAC5") == "Réception définitive") & (pl.col("IGVAC1") == "Oui") & (pl.col("IGVAC2") == "Oui"))
+        | (
+            (pl.col("STVAC5") == "Réception définitive")
+            & (pl.col("IGVAC1") == "Oui")
+            & (pl.col("IGVAC2") == "Oui")
+        )
     ).select(
         [
             pl.lit("IRI-3").alias("indicator_code"),
@@ -532,7 +541,11 @@ def iri_10(projects: pl.DataFrame) -> pl.DataFrame:
     dataframe
     """
     df = (
-        projects.with_columns((pl.col("VAINO6").fill_null(0) + pl.col("VAINO13").fill_null(0)).alias("value"))
+        projects.with_columns(
+            (pl.col("VAINO6").fill_null(0) + pl.col("VAINO13").fill_null(0)).alias(
+                "value"
+            )
+        )
         .select(
             [
                 pl.lit("IRI-10").alias("indicator_code"),
@@ -568,7 +581,10 @@ def iri_101(projects: pl.DataFrame) -> pl.DataFrame:
     df = (
         projects.with_columns(
             (
-                pl.col("VAINO9").fill_null(0) + pl.col("VAINO11").fill_null(0) + pl.col("VAINO15") + pl.col("VAINO17")
+                pl.col("VAINO9").fill_null(0)
+                + pl.col("VAINO11").fill_null(0)
+                + pl.col("VAINO15")
+                + pl.col("VAINO17")
             ).alias("value")
         )
         .select(
@@ -606,7 +622,10 @@ def iri_102(projects: pl.DataFrame) -> pl.DataFrame:
     df = (
         projects.with_columns(
             (
-                pl.col("VAINO10").fill_null(0) + pl.col("VAINO12").fill_null(0) + pl.col("VAINO16") + pl.col("VAINO18")
+                pl.col("VAINO10").fill_null(0)
+                + pl.col("VAINO12").fill_null(0)
+                + pl.col("VAINO16")
+                + pl.col("VAINO18")
             ).alias("value")
         )
         .select(
@@ -642,7 +661,11 @@ def iri_103(projects: pl.DataFrame) -> pl.DataFrame:
     dataframe
     """
     df = (
-        projects.with_columns((pl.col("VAINO7").fill_null(0) + pl.col("VAINO14").fill_null(0)).alias("value"))
+        projects.with_columns(
+            (pl.col("VAINO7").fill_null(0) + pl.col("VAINO14").fill_null(0)).alias(
+                "value"
+            )
+        )
         .select(
             [
                 pl.lit("IRI-103").alias("indicator_code"),
@@ -706,7 +729,11 @@ def iri_131(activites: pl.DataFrame) -> pl.DataFrame:
     dataframe
     """
     df = (
-        activites.with_columns((pl.col("VAAGR8").fill_null(0) + pl.col("VAAGR10").fill_null(0)).alias("value"))
+        activites.with_columns(
+            (pl.col("VAAGR8").fill_null(0) + pl.col("VAAGR10").fill_null(0)).alias(
+                "value"
+            )
+        )
         .select(
             [
                 pl.lit("IRI-131").alias("indicator_code"),
@@ -740,7 +767,11 @@ def iri_132(activites: pl.DataFrame) -> pl.DataFrame:
     dataframe
     """
     df = (
-        activites.with_columns((pl.col("VAAGR9").fill_null(0) + pl.col("VAAGR11").fill_null(0)).alias("value"))
+        activites.with_columns(
+            (pl.col("VAAGR9").fill_null(0) + pl.col("VAAGR11").fill_null(0)).alias(
+                "value"
+            )
+        )
         .select(
             [
                 pl.lit("IRI-132").alias("indicator_code"),
@@ -1081,7 +1112,9 @@ def iri_17(
             pl.col("LINO6").alias("coordinates"),
             pl.col("VAINO7").alias("denominator"),
             pl.col("VAINO8").fill_null(0).alias("numerator"),
-            ((pl.col("VAINO8").fill_null(0) / pl.col("VAINO7")).round(3)).alias("value"),
+            ((pl.col("VAINO8").fill_null(0) / pl.col("VAINO7")).round(3)).alias(
+                "value"
+            ),
         ]
     )
 
@@ -1098,7 +1131,9 @@ def iri_17(
             pl.col("LAGR6").alias("coordinates"),
             pl.col("VAAGR7").alias("denominator"),
             pl.col("VAAGR7A").fill_null(0).alias("numerator"),
-            ((pl.col("VAAGR7A").fill_null(0) / pl.col("VAAGR7")).round(3)).alias("value"),
+            ((pl.col("VAAGR7A").fill_null(0) / pl.col("VAAGR7")).round(3)).alias(
+                "value"
+            ),
         ]
     )
 
@@ -1327,7 +1362,11 @@ def load_praps1_data(fname: str) -> pl.DataFrame:
 
     # percent values between 0 and 1
     df = df.with_columns(
-        pl.when(pl.col("indicator_code").is_in(["IR-1", "IRI-17", "IRI-1", "IRI-9", "Reg Int 7"]))
+        pl.when(
+            pl.col("indicator_code").is_in(
+                ["IR-1", "IRI-17", "IRI-1", "IRI-9", "Reg Int 7"]
+            )
+        )
         .then(pl.col("value") / 100)
         .otherwise(pl.col("value"))
         .alias("value")
@@ -1383,7 +1422,9 @@ def combine_indicators(
         reg_int_6(indicateurs_regionaux),
     ]
 
-    praps2 = pl.concat([df for df in dataframes if not df.is_empty()], how="diagonal_relaxed")
+    praps2 = pl.concat(
+        [df for df in dataframes if not df.is_empty()], how="diagonal_relaxed"
+    )
     praps2 = praps2.with_columns(pl.lit("PRAPS2").alias("project"))
     df = pl.concat([praps1, praps2], how="diagonal_relaxed")
 
@@ -1392,7 +1433,9 @@ def combine_indicators(
 
 def join_metadata(df: pl.DataFrame, indicators_metadata: pl.DataFrame) -> pl.DataFrame:
     """Join indicators metadata (unit, full name, etc) to dataframe."""
-    df = df.join(other=indicators_metadata, how="left", left_on="indicator_code", right_on="code").select(
+    df = df.join(
+        other=indicators_metadata, how="left", left_on="indicator_code", right_on="code"
+    ).select(
         [
             pl.col("indicator_code"),
             pl.col("designation").alias("indicator_name"),
@@ -1426,7 +1469,9 @@ def aggregate_counts(df: pl.DataFrame, agg_columns: Sequence[str]) -> pl.DataFra
 def aggregate_ratios(df: pl.DataFrame, agg_columns: Sequence[str]) -> pl.DataFrame:
     return (
         df.filter(
-            (pl.col("unit") == "percent") & (pl.col("numerator").is_not_null()) & (pl.col("denominator").is_not_null())
+            (pl.col("unit") == "percent")
+            & (pl.col("numerator").is_not_null())
+            & (pl.col("denominator").is_not_null())
         )
         .group_by(agg_columns)
         .agg([pl.col("numerator").sum(), pl.col("denominator").sum()])
@@ -1434,9 +1479,14 @@ def aggregate_ratios(df: pl.DataFrame, agg_columns: Sequence[str]) -> pl.DataFra
     )
 
 
-def aggregate_ratios_without_num_den(df: pl.DataFrame, agg_columns: Sequence[str]) -> pl.DataFrame:
+def aggregate_ratios_without_num_den(
+    df: pl.DataFrame, agg_columns: Sequence[str]
+) -> pl.DataFrame:
     return (
-        df.filter((pl.col("unit") == "percent") & ((pl.col("numerator").is_null()) | (pl.col("denominator").is_null())))
+        df.filter(
+            (pl.col("unit") == "percent")
+            & ((pl.col("numerator").is_null()) | (pl.col("denominator").is_null()))
+        )
         .group_by(agg_columns)
         .agg(pl.col("value").mean())
     )
@@ -1468,9 +1518,9 @@ def spatial_aggregation(df: pl.DataFrame) -> pl.DataFrame:
     ratios = aggregate_ratios(df=df_lvl6, agg_columns=AGG_COLUMNS)
     ratios_ = aggregate_ratios_without_num_den(df=df_lvl6, agg_columns=AGG_COLUMNS)
     bools = aggregate_bools(df=df_lvl6, agg_columns=AGG_COLUMNS)
-    per_region = pl.concat([counts, ratios, ratios_, bools], how="diagonal_relaxed").with_columns(
-        pl.lit(3).alias("level")
-    )
+    per_region = pl.concat(
+        [counts, ratios, ratios_, bools], how="diagonal_relaxed"
+    ).with_columns(pl.lit(3).alias("level"))
     df = pl.concat([df, per_region], how="diagonal_relaxed")
 
     # from lvl3 (region) to lvl2 (country)
@@ -1480,9 +1530,9 @@ def spatial_aggregation(df: pl.DataFrame) -> pl.DataFrame:
     ratios = aggregate_ratios(df=df_lvl3, agg_columns=agg_columns)
     ratios_ = aggregate_ratios_without_num_den(df=df_lvl3, agg_columns=agg_columns)
     bools = aggregate_bools(df=df_lvl3, agg_columns=agg_columns)
-    per_country = pl.concat([counts, ratios, ratios_, bools], how="diagonal_relaxed").with_columns(
-        pl.lit(2).alias("level")
-    )
+    per_country = pl.concat(
+        [counts, ratios, ratios_, bools], how="diagonal_relaxed"
+    ).with_columns(pl.lit(2).alias("level"))
     df = pl.concat([df, per_country], how="diagonal_relaxed")
 
     # from lvl2 (country) to lvl1 (region)
@@ -1492,9 +1542,9 @@ def spatial_aggregation(df: pl.DataFrame) -> pl.DataFrame:
     ratios = aggregate_ratios(df=df_lvl2, agg_columns=agg_columns)
     ratios_ = aggregate_ratios_without_num_den(df=df_lvl2, agg_columns=agg_columns)
     bools = aggregate_bools(df=df_lvl2, agg_columns=agg_columns)
-    regional = pl.concat([counts, ratios, ratios_, bools], how="diagonal_relaxed").with_columns(
-        [pl.lit(1).alias("level"), pl.lit("Régional").alias("country")]
-    )
+    regional = pl.concat(
+        [counts, ratios, ratios_, bools], how="diagonal_relaxed"
+    ).with_columns([pl.lit(1).alias("level"), pl.lit("Régional").alias("country")])
     df = pl.concat([df, regional], how="diagonal_relaxed")
 
     # combine all geographic levels into a single dataframe
@@ -1571,7 +1621,9 @@ def fill_missing_values(df: pl.DataFrame) -> pl.DataFrame:
                     rows.append(row)
 
                 if df_["level"].max() >= 3:
-                    for region in df_.filter(pl.col("country") == country)["region"].unique():
+                    for region in df_.filter(pl.col("country") == country)[
+                        "region"
+                    ].unique():
                         if not region:
                             continue
 
@@ -1635,7 +1687,11 @@ def cumulate_ratios(df: pl.DataFrame) -> pl.DataFrame:
     """
     ratios = pl.concat(
         [
-            df.filter((pl.col("unit") == "percent") & (pl.col("project") == "PRAPS2") & (pl.col("level") == level))
+            df.filter(
+                (pl.col("unit") == "percent")
+                & (pl.col("project") == "PRAPS2")
+                & (pl.col("level") == level)
+            )
             .sort(by="date")
             .with_columns(
                 [
@@ -1665,8 +1721,12 @@ def cumulate_ratios(df: pl.DataFrame) -> pl.DataFrame:
 
     return ratios.with_columns(
         [
-            (pl.col("cumulated_numerator") / pl.col("cumulated_denominator")).alias("cumulated_value"),
-            (pl.col("cumulated_numerator") / pl.col("cumulated_denominator")).alias("cumulated_value_praps2"),
+            (pl.col("cumulated_numerator") / pl.col("cumulated_denominator")).alias(
+                "cumulated_value"
+            ),
+            (pl.col("cumulated_numerator") / pl.col("cumulated_denominator")).alias(
+                "cumulated_value_praps2"
+            ),
         ]
     )
 

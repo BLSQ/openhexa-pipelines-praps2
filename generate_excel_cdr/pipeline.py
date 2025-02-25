@@ -142,7 +142,7 @@ def get_value(df: pl.DataFrame, indicator: str, country: str, year: int) -> int 
             & (pl.col("year") == year),
             named=True,
         )
-        cum_value = row.get("cumulative_value")
+        cum_value = row.get("cumulative_value_praps2")
         value = row.get("value")
         if cum_value is not None and not indicator.startswith("Reg"):
             return cum_value
@@ -248,45 +248,41 @@ def generate(targets_fp: Path, cdr_dir: Path, dst_file: Path):
         sheet.merge_range(row, col + 4, row + 1, col + 4, "Pays", section_header_fmt)
 
         # section headers: years
-        sheet.merge_range(row, 5, row, 5 + 1, "2021", section_header_year_fmt)
+        sheet.merge_range(row, 5, row, 5 + 2, "2022", section_header_year_fmt)
         sheet.write(row + 1, 5, "Cible", section_header_year_fmt)
         sheet.write(row + 1, 6, "Valeur", section_header_year_fmt)
+        sheet.write(row + 1, 7, "%", section_header_year_fmt)
 
-        sheet.merge_range(row, 7, row, 7 + 2, "2022", section_header_year_fmt)
-        sheet.write(row + 1, 7, "Cible", section_header_year_fmt)
-        sheet.write(row + 1, 8, "Valeur", section_header_year_fmt)
-        sheet.write(row + 1, 9, "%", section_header_year_fmt)
+        sheet.merge_range(row, 8, row, 8 + 2, "2023", section_header_year_fmt)
+        sheet.write(row + 1, 8, "Cible", section_header_year_fmt)
+        sheet.write(row + 1, 9, "Valeur", section_header_year_fmt)
+        sheet.write(row + 1, 10, "%", section_header_year_fmt)
 
-        sheet.merge_range(row, 10, row, 10 + 2, "2023", section_header_year_fmt)
-        sheet.write(row + 1, 10, "Cible", section_header_year_fmt)
-        sheet.write(row + 1, 11, "Valeur", section_header_year_fmt)
-        sheet.write(row + 1, 12, "%", section_header_year_fmt)
+        sheet.merge_range(row, 11, row, 11 + 2, "2024", section_header_year_fmt)
+        sheet.write(row + 1, 11, "Cible", section_header_year_fmt)
+        sheet.write(row + 1, 12, "Valeur", section_header_year_fmt)
+        sheet.write(row + 1, 13, "%", section_header_year_fmt)
 
-        sheet.merge_range(row, 13, row, 13 + 2, "2024", section_header_year_fmt)
-        sheet.write(row + 1, 13, "Cible", section_header_year_fmt)
-        sheet.write(row + 1, 14, "Valeur", section_header_year_fmt)
-        sheet.write(row + 1, 15, "%", section_header_year_fmt)
+        sheet.merge_range(row, 14, row, 14 + 2, "2025", section_header_year_fmt)
+        sheet.write(row + 1, 14, "Cible", section_header_year_fmt)
+        sheet.write(row + 1, 15, "Valeur", section_header_year_fmt)
+        sheet.write(row + 1, 16, "%", section_header_year_fmt)
 
-        sheet.merge_range(row, 16, row, 16 + 2, "2025", section_header_year_fmt)
-        sheet.write(row + 1, 16, "Cible", section_header_year_fmt)
-        sheet.write(row + 1, 17, "Valeur", section_header_year_fmt)
-        sheet.write(row + 1, 18, "%", section_header_year_fmt)
+        sheet.merge_range(row, 17, row, 17 + 2, "2026", section_header_year_fmt)
+        sheet.write(row + 1, 17, "Cible", section_header_year_fmt)
+        sheet.write(row + 1, 18, "Valeur", section_header_year_fmt)
+        sheet.write(row + 1, 19, "%", section_header_year_fmt)
 
-        sheet.merge_range(row, 19, row, 19 + 2, "2026", section_header_year_fmt)
-        sheet.write(row + 1, 19, "Cible", section_header_year_fmt)
-        sheet.write(row + 1, 20, "Valeur", section_header_year_fmt)
-        sheet.write(row + 1, 21, "%", section_header_year_fmt)
-
-        sheet.merge_range(row, 22, row, 22 + 2, "2027", section_header_year_fmt)
-        sheet.write(row + 1, 22, "Cible", section_header_year_fmt)
-        sheet.write(row + 1, 23, "Valeur", section_header_year_fmt)
-        sheet.write(row + 1, 24, "%", section_header_year_fmt)
+        sheet.merge_range(row, 20, row, 20 + 2, "2027", section_header_year_fmt)
+        sheet.write(row + 1, 20, "Cible", section_header_year_fmt)
+        sheet.write(row + 1, 21, "Valeur", section_header_year_fmt)
+        sheet.write(row + 1, 22, "%", section_header_year_fmt)
 
         row += 2
 
         for component in section["components"]:
             col = 0
-            sheet.merge_range(row, col, row, col + 29, component["name"], component_fmt)
+            sheet.merge_range(row, col, row, col + 22, component["name"], component_fmt)
             row += 1
 
             for indicator in component["indicators"]:
@@ -332,7 +328,7 @@ def generate(targets_fp: Path, cdr_dir: Path, dst_file: Path):
                     sheet.write(row, col, country_name, country_fmt)
                     col += 1
 
-                    for year in range(2021, 2028):
+                    for year in range(2022, 2028):
                         value = get_value(indicators, indicator, country_code, year)
                         target = get_target(targets, indicator, country_code, year)
 
@@ -355,13 +351,12 @@ def generate(targets_fp: Path, cdr_dir: Path, dst_file: Path):
                         col += 1
                         sheet.write(row, col, value, value_fmt)
 
-                        if year >= 2022:
-                            col += 1
-                            if value is not None and target:
-                                ratio = round(value / target, 3)
-                            else:
-                                ratio = None
-                            sheet.write(row, col, ratio, ratio_fmt)
+                        col += 1
+                        if value is not None and target:
+                            ratio = round(value / target, 3)
+                        else:
+                            ratio = None
+                        sheet.write(row, col, ratio, ratio_fmt)
 
                         col += 1
 

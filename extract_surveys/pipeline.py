@@ -25,6 +25,7 @@ SURVEYS = [
     ("aPMh3Q2LRKZQ3uxT4cBK2s", "sous_projets_innovants"),
     ("aCtqjcw7etkEQXoBf6VMX7", "gestion_durable_des_paysages"),
     ("aAv4xBADqLzQw5h9fNDRts", "activites_generatrices_de_revenus"),
+    ("aEcSkGSLEadq6i5TSTNCjH", "cultures_vivrieres"),
 ]
 
 
@@ -134,7 +135,7 @@ def push(src_dir: str, wait: bool) -> bool:
     con = create_engine(workspace.database_url)
 
     for _, name in SURVEYS:
-        if name in ("indicateurs_regionaux", "indicateurs_pays"):
+        if name in ("indicateurs_regionaux", "indicateurs_pays", "cultures_vivrieres"):
             df = pl.read_parquet(Path(src_dir, "surveys", f"{name}.parquet"))
             df.write_database(
                 name,

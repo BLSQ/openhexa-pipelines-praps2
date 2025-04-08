@@ -110,7 +110,12 @@ def transform(src_dir: str, output_dir: str, wait: bool) -> bool:
             continue
 
         geo = to_geodataframe(df.with_columns(pl.col("_geolocation").str.json_decode()))
-        geo.to_file(Path(output_dir, "geo", f"{name}.gpkg"), driver="GPKG")
+
+        dst_file = Path(output_dir, "geo", f"{name}.gpkg")
+        if dst_file.exists():
+            dst_file.unlink()
+
+        geo.to_file(Path(output_dir, "geo", f"{name}.gpkg"))
 
         snapshots = surveys.concatenate_snapshots(
             df, column_unique_id="infrastructure_id"

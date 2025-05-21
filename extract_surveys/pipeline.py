@@ -15,7 +15,7 @@ from openhexa.toolbox.kobo.utils import to_geodataframe
 from sqlalchemy import create_engine
 
 SURVEYS = [
-    ("aHjhdBWbXzGf6d9bYm88Hq", "indicateurs_regionaux"),
+    ("aNbJpiDsPCyC2uUmCxW5ph", "indicateurs_regionaux"),
     ("aCHSjHDuphcc2KjCgqAyxP", "indicateurs_pays"),
     ("aCgpBnsy39TLqiSsujMiYA", "marches_a_betail"),
     ("aLWDMaeZnBHoZvoUHgy9WY", "parcs_de_vaccination"),

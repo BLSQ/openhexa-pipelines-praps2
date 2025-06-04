@@ -27,6 +27,18 @@ def download_survey_data(api: Api, uid: str, name: str, dst_file: Path) -> Path:
     """Download survey data from KoboToolbox."""
     survey = api.get_survey(uid)
     df = to_dataframe(survey)
+
+    # if the _validation_status column is empty, this will lead to an empty struct which
+    # cannot be written to a Parquet file.
+    # add the "label" field to the struct so that it is not empty
+    if "_validation_status" in df.columns:
+        if df["_validation_status"].dtype == pl.Struct([]):
+            df = df.with_columns(
+                pl.col("_validation_status")
+                .cast(pl.Struct([pl.Field("label", pl.String)]))
+                .alias("_validation_status")
+            )
+
     df.write_parquet(dst_file)
     current_run.log_info(f"Downloaded {name} survey data ({len(df)} entries)")
     return dst_file

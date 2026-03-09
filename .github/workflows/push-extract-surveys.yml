@@ -1,6 +1,7 @@
 name: Push "extract surveys" pipeline
 
 on:
+  workflow_dispatch:
   push:
     paths:
       - ".github/workflows/push-extract-surveys.yml"

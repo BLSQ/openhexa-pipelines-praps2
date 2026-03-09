@@ -1,6 +1,7 @@
 name: Push "generate excel CDR" pipeline
 
 on:
+  workflow_dispatch:
   push:
     paths:
       - ".github/workflows/push-generate-excel-cdr.yml"

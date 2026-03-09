@@ -1,6 +1,7 @@
 name: Push "compute indicators" pipeline
 
 on:
+  workflow_dispatch:
   push:
     paths:
       - ".github/workflows/push-compute-indicators.yml"

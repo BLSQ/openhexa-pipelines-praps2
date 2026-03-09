@@ -152,6 +152,7 @@ def push(src_dir: str, wait: bool) -> bool:
 
         else:
             gpkg = gpd.read_file(Path(src_dir, "geo", f"{name}.gpkg"))
+            gpkg = gpkg[gpkg.geometry.notna()]
             gpkg.to_postgis(name, con, "public", if_exists="replace")
             current_run.add_database_output(name)
             current_run.log_info(f"Writing database table {name}")

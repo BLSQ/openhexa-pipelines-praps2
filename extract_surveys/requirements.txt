@@ -1,2 +1,2 @@
-openhexa.toolbox==1.11.8
+openhexa.toolbox==2.11.0
 xlsxwriter

@@ -27,7 +27,7 @@ jobs:
       - name: Push pipeline to OpenHEXA
         run: |
           openhexa pipelines push generate_excel_cdr \
-            -c "generate-excel-cd" \
+            -c "generate-excel-cdr" \
             -n ${{ github.sha }} \
             -l "https://github.com/BLSQ/openhexa-pipelines-praps2/commit/${{ github.sha }}" \
             --yes

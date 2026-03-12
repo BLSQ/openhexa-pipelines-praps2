@@ -366,7 +366,11 @@ def transform_survey(df: pl.DataFrame, name: str):
 
     # identify unique infrastructures
     df = identify_duplicates(
-        df=df.with_columns(pl.col("level_7").str.json_decode()),
+        df=df.with_columns(
+            pl.col("level_7").str.json_decode(
+                dtype=pl.Struct({"coordinates": pl.List(pl.Float64)})
+            )
+        ),
         column_localite="level_6",
         column_coords="level_7",
         min_distance=1,

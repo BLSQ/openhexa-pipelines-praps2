@@ -27,6 +27,7 @@ jobs:
       - name: Push pipeline to OpenHEXA
         run: |
           openhexa pipelines push sync_attachments \
+            -c "sync-attachments" \
             -n ${{ github.sha }} \
             -l "https://github.com/BLSQ/openhexa-pipelines-praps2/commit/${{ github.sha }}" \
             --yes

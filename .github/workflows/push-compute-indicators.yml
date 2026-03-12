@@ -27,6 +27,7 @@ jobs:
       - name: Push pipeline to OpenHEXA
         run: |
           openhexa pipelines push compute_indicators \
+            -c compute_indicators \
             -n ${{ github.sha }} \
             -l "https://github.com/BLSQ/openhexa-pipelines-praps2/commit/${{ github.sha }}" \
             --yes

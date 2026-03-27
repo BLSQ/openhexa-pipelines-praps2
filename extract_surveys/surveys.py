@@ -252,15 +252,16 @@ def identify_duplicates(
             return True
         return False
 
-    # create localite column by concatenating the latitude and longitude columns (rounded to 3 decimals, i.e. ~100m precision)
     df = df.with_columns(
         pl.concat_str(
             [
-                pl.col(column_latitude).round(3).cast(pl.String),
-                pl.col(column_longitude).round(3).cast(pl.String),
+                pl.col(column_latitude).round(2).cast(pl.String),
+                pl.col(column_longitude).round(2).cast(pl.String),
             ],
             separator="_",
-        ).alias("column_localite")
+        ).alias(
+            "column_localite"
+        )  # create a column with rounded coordinates to identify localities (2 decimals ~ 1.1km)
     )
     for localite in df["column_localite"].unique():
         if not localite:

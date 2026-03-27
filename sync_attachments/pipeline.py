@@ -15,7 +15,7 @@ SURVEYS = [
     "fourrage_cultive",
     "gestion_durable_des_paysages",
     "activites_generatrices_de_revenus",
-    "sous_projets_innovants"
+    "sous_projets_innovants",
 ]
 
 
@@ -35,7 +35,11 @@ SURVEYS = [
     default="data/kobo/pictures",
 )
 @parameter(
-    "bucket", name="GCS bucket", help="Nom du bucket GCS où stocker les images", type=str, default="hexa-public-praps"
+    "bucket",
+    name="GCS bucket",
+    help="Nom du bucket GCS où stocker les images",
+    type=str,
+    default="hexa-public-praps",
 )
 def sync_attachments(input_dir: str, output_dir: str, bucket: str):
     input_dir = Path(workspace.files_path, input_dir)
@@ -114,4 +118,10 @@ def upload_attachments(input_dir: Path, dst_bucket: str, wait: bool = False):
             if fp.name not in dst_files:
                 blob = bucket.blob(fp.name)
                 blob.upload_from_filename(fp.absolute().as_posix())
-                current_run.log_info(f"Uploaded `{fp.name}` to GCS bucket `{dst_bucket}`")
+                current_run.log_info(
+                    f"Uploaded `{fp.name}` to GCS bucket `{dst_bucket}`"
+                )
+
+
+if __name__ == "__main__":
+    sync_attachments()

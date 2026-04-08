@@ -102,15 +102,16 @@ def transform(src_dir: str, output_dir: str, wait: bool) -> bool:
             continue
 
         survey = pl.read_parquet(src_file)
-        df = surveys.transform_survey(survey, name)
-        df.write_parquet(Path(output_dir, "surveys", f"{name}.parquet"))
-        df.write_excel(Path(output_dir, "surveys", f"{name}.xlsx"))
+        df, df_no_duplicates = surveys.transform_survey(survey, name)
+
+        df_no_duplicates.write_parquet(Path(output_dir, "surveys", f"{name}.parquet"))
+        df_no_duplicates.write_excel(Path(output_dir, "surveys", f"{name}.xlsx"))
 
         if name in ("indicateurs_regionaux", "indicateurs_pays"):
             continue
 
         geo = to_geodataframe(
-            df.with_columns(
+            df_no_duplicates.with_columns(
                 pl.col("_geolocation").str.json_decode(dtype=pl.List(pl.Float64))
             )
         )

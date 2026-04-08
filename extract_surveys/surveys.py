@@ -290,6 +290,17 @@ def identify_duplicates(
     return df
 
 
+def drop_duplicates(
+    df: pl.DataFrame,
+    column_unique_id: str = "infrastructure_id",
+    column_date: str = "DATE",
+) -> pl.DataFrame:
+    """Drop duplicate rows based on unique infrastructure ID and date."""
+    df = df.sort(column_date, descending=True)
+    df = df.unique(subset=column_unique_id, keep="first")
+    return df
+
+
 def serialize(value):
     """Serialize structs and lists columns into JSON."""
     if type(value) in (pl.Struct, dict):
@@ -371,7 +382,7 @@ def transform_survey(df: pl.DataFrame, name: str):
             )
 
     if name in ("indicateurs_regionaux", "indicateurs_pays"):
-        return df
+        return df, df
 
     # identify unique infrastructures
     df = identify_duplicates(
@@ -380,9 +391,15 @@ def transform_survey(df: pl.DataFrame, name: str):
         column_longitude="LONGITUDE",
         min_distance=1,
     )
+
     df = df.with_columns(pl.col("level_7").struct.json_encode())
 
-    return df
+    # drop duplicates based on unique infrastructure ID and date
+    df_no_duplicates = drop_duplicates(
+        df, column_unique_id="infrastructure_id", column_date="DATE"
+    )
+
+    return df, df_no_duplicates
 
 
 def concatenate_snapshots(

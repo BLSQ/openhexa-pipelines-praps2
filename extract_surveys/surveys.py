@@ -30,9 +30,7 @@ def download_survey_data(api: Api, uid: str, name: str, dst_file: Path) -> Path:
 
     # Some columns may have empty structs (e.g. _validation_status when all values are
     # empty) which cannot be written to Parquet. Replace with null String columns.
-    empty_struct_cols = [
-        col for col in df.columns if df[col].dtype == pl.Struct([])
-    ]
+    empty_struct_cols = [col for col in df.columns if df[col].dtype == pl.Struct([])]
     if empty_struct_cols:
         df = df.with_columns(
             pl.lit(None).cast(pl.String).alias(col) for col in empty_struct_cols
@@ -214,13 +212,13 @@ def reassign_ids(
 
 def identify_duplicates(
     df: pl.DataFrame,
-    column_localite: str = "localite",
-    column_coords: str = "coordinates",
+    column_latitude: str = "LATITUDE",
+    column_longitude: str = "LONGITUDE",
     min_distance: float = 1.0,
 ) -> pl.DataFrame:
     """Identify duplicate rows in source dataframe.
 
-    Duplicates are identified based on localite and geographic coordinates.
+    Duplicates are identified based on geographic coordinates.
     A unique ID will be assigned to each row (with duplicated unique ID
     for duplicated rows).
 
@@ -228,10 +226,10 @@ def identify_duplicates(
     ----------
     df : dataframe
         Input dataframe.
-    column_localite : str
-        Dataframe column with localité name.
-    column_coords : str
-        Dataframe column with coordinates.
+    column_latitude : str
+        Dataframe column with latitude values.
+    column_longitude : str
+        Dataframe column with longitude values.
     min_distance : float (default=1)
         Min. distance between two points for not being identified as
         duplicates (in kilometers).
@@ -244,29 +242,40 @@ def identify_duplicates(
     df = df.with_row_index(name="infrastructure_id")
     pairs = []
 
-    def _check_coords(row: dict, column_coords: str) -> bool:
+    def _check_coords(row: dict, column_latitude: str, column_longitude: str) -> bool:
         """Check availability of coordinates."""
-        coords = row.get(column_coords)
-        if coords:
-            if coords.get("coordinates"):
-                return True
+        lat = row.get(column_latitude)
+        lon = row.get(column_longitude)
+        if lat is not None and lon is not None:
+            return True
         return False
 
-    for localite in df[column_localite].unique():
+    df = df.with_columns(
+        pl.concat_str(
+            [
+                pl.col(column_latitude).round(2).cast(pl.String),
+                pl.col(column_longitude).round(2).cast(pl.String),
+            ],
+            separator="_",
+        ).alias(
+            "column_localite"
+        )  # create a column with rounded coordinates to identify localities (2 decimals ~ 1.1km)
+    )
+    for localite in df["column_localite"].unique():
         if not localite:
             continue
-        df_ = df.filter(pl.col(column_localite) == localite)
+        df_ = df.filter(pl.col("column_localite") == localite)
         if len(df_) < 2:
             continue
         for row1, row2 in combinations(df_.iter_rows(named=True), 2):
-            if not _check_coords(row1, column_coords) or not _check_coords(
-                row2, column_coords
-            ):
+            if not _check_coords(
+                row1, column_latitude, column_longitude
+            ) or not _check_coords(row2, column_latitude, column_longitude):
                 continue
-            lat1 = row1[column_coords]["coordinates"][0]
-            lon1 = row1[column_coords]["coordinates"][1]
-            lat2 = row2[column_coords]["coordinates"][0]
-            lon2 = row2[column_coords]["coordinates"][1]
+            lat1 = row1[column_latitude]
+            lon1 = row1[column_longitude]
+            lat2 = row2[column_latitude]
+            lon2 = row2[column_longitude]
             distance = haversine(lat1, lon1, lat2, lon2)
             if distance <= min_distance:
                 pairs.append((row1["infrastructure_id"], row2["infrastructure_id"]))
@@ -366,13 +375,9 @@ def transform_survey(df: pl.DataFrame, name: str):
 
     # identify unique infrastructures
     df = identify_duplicates(
-        df=df.with_columns(
-            pl.col("level_7").str.json_decode(
-                dtype=pl.Struct({"coordinates": pl.List(pl.Float64)})
-            )
-        ),
-        column_localite="level_6",
-        column_coords="level_7",
+        df,
+        column_latitude="LATITUDE",
+        column_longitude="LONGITUDE",
         min_distance=1,
     )
     df = df.with_columns(pl.col("level_7").struct.json_encode())

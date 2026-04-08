@@ -48,20 +48,36 @@ def compute_indicators(survey_dir: str, cdr_dir: str, push_to_db: bool):
 def compute(survey_dir: Path, cdr_dir: Path):
     praps1 = indicators.load_praps1_data(Path(cdr_dir, "cdr_praps1_initial_values.csv"))
     df = indicators.combine_indicators(
-        indicateurs_regionaux=pl.read_parquet(Path(survey_dir, "indicateurs_regionaux.parquet")),
+        indicateurs_regionaux=pl.read_parquet(
+            Path(survey_dir, "indicateurs_regionaux.parquet")
+        ),
         indicateurs_pays=pl.read_parquet(Path(survey_dir, "indicateurs_pays.parquet")),
-        gestion_durable=pl.read_parquet(Path(survey_dir, "gestion_durable_des_paysages.parquet")),
-        unites_veterinaires=pl.read_parquet(Path(survey_dir, "unites_veterinaires.parquet")),
-        parcs_de_vaccination=pl.read_parquet(Path(survey_dir, "parcs_de_vaccination.parquet")),
+        gestion_durable=pl.read_parquet(
+            Path(survey_dir, "gestion_durable_des_paysages.parquet")
+        ),
+        unites_veterinaires=pl.read_parquet(
+            Path(survey_dir, "unites_veterinaires.parquet")
+        ),
+        parcs_de_vaccination=pl.read_parquet(
+            Path(survey_dir, "parcs_de_vaccination.parquet")
+        ),
         points_d_eau=pl.read_parquet(Path(survey_dir, "points_d_eau.parquet")),
         marches_a_betail=pl.read_parquet(Path(survey_dir, "marches_a_betail.parquet")),
-        sous_projets=pl.read_parquet(Path(survey_dir, "sous_projets_innovants.parquet")),
-        activites=pl.read_parquet(Path(survey_dir, "activites_generatrices_de_revenus.parquet")),
+        sous_projets=pl.read_parquet(
+            Path(survey_dir, "sous_projets_innovants.parquet")
+        ),
+        activites=pl.read_parquet(
+            Path(survey_dir, "activites_generatrices_de_revenus.parquet")
+        ),
         praps1=praps1,
     )
-    current_run.log_info(f"Computed {len(df['indicator_code'].unique()) - 1} indicators ({len(df)} values)")
+    current_run.log_info(
+        f"Computed {len(df['indicator_code'].unique()) - 1} indicators ({len(df)} values)"
+    )
 
-    df = indicators.join_metadata(df, indicators_metadata=pl.read_csv(Path(cdr_dir, "indicators_metadata.csv")))
+    df = indicators.join_metadata(
+        df, indicators_metadata=pl.read_csv(Path(cdr_dir, "indicators_metadata.csv"))
+    )
     current_run.log_info(f"Joined metadata ({len(df)} values)")
 
     df = indicators.spatial_aggregation(df)
@@ -92,11 +108,19 @@ def compute(survey_dir: Path, cdr_dir: Path):
 
 @compute_indicators.task
 def push(df: pl.DataFrame) -> bool:
-    df.write_database("indicators", connection=workspace.database_url, if_table_exists="replace")
+    df.write_database(
+        "indicators", connection=workspace.database_url, if_table_exists="replace"
+    )
     current_run.log_info(f"Writing to database table `indicators` ({len(df)} rows)")
 
-    df.write_database("PRAPS2_Indicators_Aggregated", connection=workspace.database_url, if_table_exists="replace")
-    current_run.log_info(f"Writing to database table `PRAPS2_Indicators_Aggregated` ({len(df)} rows)")
+    df.write_database(
+        "PRAPS2_Indicators_Aggregated",
+        connection=workspace.database_url,
+        if_table_exists="replace",
+    )
+    current_run.log_info(
+        f"Writing to database table `PRAPS2_Indicators_Aggregated` ({len(df)} rows)"
+    )
 
     if get_environment() == Environment.CLOUD_PIPELINE:
         current_run.add_database_output("indicators")
@@ -113,20 +137,28 @@ def update_dataset(cdr_dir: str, wait: bool) -> bool:
         r.raise_for_status()
         return r.headers["ETag"].replace('"', "")
 
-    src_files = [Path(cdr_dir, "indicateurs.parquet"), Path(cdr_dir, "indicateurs.xlsx")]
+    src_files = [
+        Path(cdr_dir, "indicateurs.parquet"),
+        Path(cdr_dir, "indicateurs.xlsx"),
+    ]
 
     dataset = workspace.get_dataset("indicateurs-cdr-353681")
     latest = dataset.latest_version
 
     if latest:
-        src_hashes = [hashlib.md5(open(src_file, "rb").read()).hexdigest() for src_file in src_files]
+        src_hashes = [
+            hashlib.md5(open(src_file, "rb").read()).hexdigest()
+            for src_file in src_files
+        ]
         dst_hashes = [get_md5(f.download_url) for f in latest.files]
 
         if set(src_hashes) == set(dst_hashes):
             current_run.log_info("No changes detected. Skipping dataset update")
             return True
 
-    new_version = dataset.create_version(name=datetime.datetime.now().strftime("%Y%m%d_%H%M%S"))
+    new_version = dataset.create_version(
+        name=datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    )
 
     for src_file in src_files:
         new_version.add_file(src_file.as_posix(), src_file.name)

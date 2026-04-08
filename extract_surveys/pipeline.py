@@ -111,9 +111,7 @@ def transform(src_dir: str, output_dir: str, wait: bool) -> bool:
 
         geo = to_geodataframe(
             df.with_columns(
-                pl.col("_geolocation").str.json_decode(
-                    dtype=pl.List(pl.Float64)
-                )
+                pl.col("_geolocation").str.json_decode(dtype=pl.List(pl.Float64))
             )
         )
 

@@ -392,9 +392,6 @@ def transform_survey(df: pl.DataFrame, name: str):
         min_distance=1,
     )
 
-    # drop duplicates based on unique infrastructure ID and date
-    df = drop_duplicates(df, column_unique_id="infrastructure_id", column_date="DATE")
-
     df = df.with_columns(pl.col("level_7").struct.json_encode())
 
     return df

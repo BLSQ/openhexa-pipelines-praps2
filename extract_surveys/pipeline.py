@@ -25,7 +25,7 @@ SURVEYS = [
     ("aPMh3Q2LRKZQ3uxT4cBK2s", "sous_projets_innovants"),
     ("aCtqjcw7etkEQXoBf6VMX7", "gestion_durable_des_paysages"),
     ("aAv4xBADqLzQw5h9fNDRts", "activites_generatrices_de_revenus"),
-    ("aEcSkGSLEadq6i5TSTNCjH", "cultures_vivrieres"),
+    # ("aEcSkGSLEadq6i5TSTNCjH", "cultures_vivrieres"),
 ]
 
 

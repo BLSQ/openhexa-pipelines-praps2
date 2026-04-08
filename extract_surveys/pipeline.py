@@ -102,10 +102,7 @@ def transform(src_dir: str, output_dir: str, wait: bool) -> bool:
             continue
 
         survey = pl.read_parquet(src_file)
-        df = surveys.transform_survey(survey, name)
-        df_no_duplicates = surveys.drop_duplicates(
-            df, column_unique_id="infrastructure_id", column_date="DATE"
-        )
+        df, df_no_duplicates = surveys.transform_survey(survey, name)
 
         df_no_duplicates.write_parquet(Path(output_dir, "surveys", f"{name}.parquet"))
         df_no_duplicates.write_excel(Path(output_dir, "surveys", f"{name}.xlsx"))

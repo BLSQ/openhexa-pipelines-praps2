@@ -165,3 +165,12 @@ workspace.yaml
 
 # VS code
 .vscode/
+
+# Parquet files
+*.parquet
+
+# CSV files
+*.csv
+
+# Jupyter notebooks
+*.ipynb

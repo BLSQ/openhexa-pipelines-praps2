@@ -212,8 +212,8 @@ def reassign_ids(
 
 def identify_duplicates(
     df: pl.DataFrame,
-    column_latitude: float = "LATITUDE",
-    column_longitude: float = "LONGITUDE",
+    column_latitude: str = "LATITUDE",
+    column_longitude: str = "LONGITUDE",
     min_distance: float = 1.0,
 ) -> pl.DataFrame:
     """Identify duplicate rows in source dataframe.
@@ -226,9 +226,9 @@ def identify_duplicates(
     ----------
     df : dataframe
         Input dataframe.
-    column_latitude : float
+    column_latitude : str
         Dataframe column with latitude values.
-    column_longitude : float
+    column_longitude : str
         Dataframe column with longitude values.
     min_distance : float (default=1)
         Min. distance between two points for not being identified as
@@ -242,9 +242,7 @@ def identify_duplicates(
     df = df.with_row_index(name="infrastructure_id")
     pairs = []
 
-    def _check_coords(
-        row: dict, column_latitude: float, column_longitude: float
-    ) -> bool:
+    def _check_coords(row: dict, column_latitude: str, column_longitude: str) -> bool:
         """Check availability of coordinates."""
         lat = row.get(column_latitude)
         lon = row.get(column_longitude)

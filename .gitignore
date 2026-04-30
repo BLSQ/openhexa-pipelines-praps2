@@ -174,3 +174,10 @@ workspace.yaml
 
 # Jupyter notebooks
 *.ipynb
+
+# Excel files
+*.xlsx
+*.xls
+
+# Windows thumbnail cache files
+*Zone.Identifier

@@ -47,6 +47,7 @@ def compute_indicators(survey_dir: str, cdr_dir: str, push_to_db: bool):
 @compute_indicators.task
 def compute(survey_dir: Path, cdr_dir: Path):
     praps1 = indicators.load_praps1_data(Path(cdr_dir, "cdr_praps1_initial_values.csv"))
+    cdr_2025 = indicators.load_cdr_2025_data(cdr_dir, "cdr_transformed_2025.parquet")
     df = indicators.combine_indicators(
         indicateurs_regionaux=pl.read_parquet(
             Path(survey_dir, "indicateurs_regionaux.parquet")
@@ -70,6 +71,7 @@ def compute(survey_dir: Path, cdr_dir: Path):
             Path(survey_dir, "activites_generatrices_de_revenus.parquet")
         ),
         praps1=praps1,
+        cdr_2025=cdr_2025,
     )
     current_run.log_info(
         f"Computed {len(df['indicator_code'].unique()) - 1} indicators ({len(df)} values)"

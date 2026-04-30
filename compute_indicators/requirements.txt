@@ -1,2 +1,3 @@
 connectorx
 xlsxwriter
+psycopg2-binary

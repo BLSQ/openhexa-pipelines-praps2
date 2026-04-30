@@ -1,6 +1,99 @@
-from openhexa.sdk import workspace
-import Path
+missing_indicator_code_mapping = {
+    "fourrage cultive produit disponible": "IRI-7",
+    "superficie culture vivriere rehabilitee": "IRI-7b",
+    "beneficiaire dequipement postrecolte": "FA-1",
+    "beneficiaire daliment animal ruminant": "FA-2",
+    "nombre personne beneficiant dune": "FA-3",
+    "beneficiaire intervention durgence relevement": "FA-4",
+}
 
-# paths
-WORKSPACE_PATH = workspace.files_path
-CDR_DIR = Path(WORKSPACE_PATH, "data/cdr")
+country_name_mapping = {
+    "BF": "Burkina-Faso",
+    "MR": "Mauritanie",
+    "MR Restruct*": "Mauritanie (restructuré)",
+    "NE": "Niger",
+    "ML": "Mali",
+    "SN": "Sénégal",
+    "TD": "Tchad",
+    "REGIONAL": "Régional",
+    "REGIONAL restruc": "Régional (restructuré)",
+}
+
+survey_files_list = [
+    "indicateurs_regionaux",
+    "indicateurs_pays",
+    "gestion_durable_des_paysages",
+    "unites_veterinaires",
+    "parcs_de_vaccination",
+    "points_d_eau",
+    "marches_a_betail",
+    "sous_projets_innovants",
+    "activites_generatrices_de_revenus",
+]
+
+surveys_metadata_mapping = {
+    "indicateurs_regionaux": {
+        "Année": "IND5",
+    },
+    "indicateurs_pays": {
+        "Pays": "DATE4",
+        "Année": "DATE5",
+    },
+    "gestion_durable_des_paysages": {
+        "Pays": "LODURA1",
+        "Année": "DATE",
+    },
+}
+
+indicator_levels_mapping = {
+    "IR-1": 2,
+    "IR-2": 2,
+    "IR-3": 6,
+    "IR-4": 2,
+    "IRI-1": 2,
+    "IRI-2": 6,
+    "IRI-3": 6,
+    "IRI-4": None,
+    "IRI-5": 6,
+    "IRI-6": 6,
+    "IRI-7": None,
+    "IRI-7b": None,
+    "IRI-8": 6,
+    "IRI-9": 2,
+    "IRI-10": 6,
+    "IRI-101": 6,
+    "IRI-102": 6,
+    "IRI-103": 6,
+    "IRI-11": None,
+    "IRI-111": None,
+    "IRI-112": None,
+    "IRI-113": None,
+    "IRI-12": None,
+    "IRI-13": 6,
+    "IRI-131": 6,
+    "IRI-132": 6,
+    "IRI-133": 6,
+    "IRI-14": 2,
+    "IRI-141": 2,
+    "IRI-15": 2,
+    "IRI-16": 6,
+    "IRI-17": 6,
+    "IRI-18": 2,
+    "IRI-181": 2,
+    "Reg Int 1": 1,
+    "Reg Int 2": 1,
+    "Reg Int 3": 1,
+    "Reg Int 4": 1,
+    "Reg Int 5": 1,
+    "Reg Int 6": 1,
+    "Reg Int 7": 1,
+    "FA-1": None,
+    "FA-2": None,
+    "FA-21": None,
+    "FA-22": None,
+    "FA-3": None,
+    "FA-31": None,
+    "FA-32": None,
+    "FA-33": None,
+    "FA-4": None,
+}

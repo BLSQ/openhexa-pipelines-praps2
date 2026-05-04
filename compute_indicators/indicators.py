@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from typing import Sequence
 import polars as pl
@@ -20,6 +21,8 @@ def ir_1(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
             }
         )
     df = pl.DataFrame(rows)
+
+    logging.info(f"IR-1: computed {len(rows)} values")
 
     return df
 
@@ -59,6 +62,12 @@ def ir_2(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
         )
 
     df = pl.DataFrame(rows)
+
+    df = df.sort(by="date").with_columns(
+        pl.col("value").cum_sum().alias("cumulated_value").over("country")
+    )
+
+    logging.info(f"IR-2: computed {len(df)} values")
 
     return df
 
@@ -120,6 +129,11 @@ def ir_3(paysages: pl.DataFrame) -> pl.DataFrame:
             }
         )
     df = pl.DataFrame(rows)
+    df = df.sort(by="date").with_columns(
+        pl.col("value").cum_sum().alias("cumulated_value").over("country")
+    )
+
+    logging.info(f"IR-3: computed {len(rows)} values")
 
     return df
 
@@ -146,6 +160,8 @@ def ir_4(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
         ]
     )
 
+    logging.info(f"IR-4: computed {len(df)} values")
+
     return df
 
 
@@ -170,6 +186,8 @@ def iri_1(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
             pl.col("IRI-1").alias("value") / 100,
         ]
     )
+
+    logging.info(f"IRI-1: computed {len(df)} values")
 
     return df
 
@@ -211,6 +229,8 @@ def iri_2(unites_veterinaires: pl.DataFrame) -> pl.DataFrame:
         ]
     )
 
+    logging.info(f"IRI-2: computed {len(df)} values")
+
     return df
 
 
@@ -248,6 +268,8 @@ def iri_3(parcs_de_vaccination: pl.DataFrame) -> pl.DataFrame:
         ]
     )
 
+    logging.info(f"IRI-3: computed {len(df)} values")
+
     return df
 
 
@@ -278,6 +300,8 @@ def iri_5(paysages: pl.DataFrame) -> pl.DataFrame:
             pl.lit(1).alias("value"),
         ]
     )
+
+    logging.info(f"IRI-5: computed {len(df)} values")
 
     return df
 
@@ -319,6 +343,8 @@ def iri_6(points_d_eau: pl.DataFrame) -> pl.DataFrame:
         ]
     )
 
+    logging.info(f"IRI-6: computed {len(df)} values")
+
     return df
 
 
@@ -359,6 +385,8 @@ def iri_8(marches: pl.DataFrame) -> pl.DataFrame:
         ]
     )
 
+    logging.info(f"IRI-8: computed {len(df)} values")
+
     return df
 
 
@@ -384,6 +412,8 @@ def iri_9(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
             pl.col("IRI-9").alias("value") / 100,
         ]
     )
+
+    logging.info(f"IRI-9: computed {len(df)} values")
 
     return df
 
@@ -423,6 +453,8 @@ def iri_10(projects: pl.DataFrame) -> pl.DataFrame:
         )
         .filter(pl.col("value") > 0)
     )
+
+    logging.info(f"IRI-10: computed {len(df)} values")
 
     return df
 
@@ -465,6 +497,8 @@ def iri_101(projects: pl.DataFrame) -> pl.DataFrame:
         .filter(pl.col("value") > 0)
     )
 
+    logging.info(f"IRI-101: computed {len(df)} values")
+
     return df
 
 
@@ -506,6 +540,8 @@ def iri_102(projects: pl.DataFrame) -> pl.DataFrame:
         .filter(pl.col("value") > 0)
     )
 
+    logging.info(f"IRI-102: computed {len(df)} values")
+
     return df
 
 
@@ -544,6 +580,8 @@ def iri_103(projects: pl.DataFrame) -> pl.DataFrame:
         .filter(pl.col("value") > 0)
     )
 
+    logging.info(f"IRI-103: computed {len(df)} values")
+
     return df
 
 
@@ -573,6 +611,8 @@ def iri_13(activites: pl.DataFrame) -> pl.DataFrame:
             pl.col("VAAGR6").alias("value"),
         ]
     )
+
+    logging.info(f"IRI-13: computed {len(df)} values")
 
     return df
 
@@ -612,6 +652,8 @@ def iri_131(activites: pl.DataFrame) -> pl.DataFrame:
         .filter(pl.col("value") > 0)
     )
 
+    logging.info(f"IRI-131: computed {len(df)} values")
+
     return df
 
 
@@ -650,6 +692,8 @@ def iri_132(activites: pl.DataFrame) -> pl.DataFrame:
         .filter(pl.col("value") > 0)
     )
 
+    logging.info(f"IRI-132: computed {len(df)} values")
+
     return df
 
 
@@ -680,6 +724,8 @@ def iri_133(activites: pl.DataFrame) -> pl.DataFrame:
         ]
     )
 
+    logging.info(f"IRI-133: computed {len(df)} values")
+
     return df
 
 
@@ -707,6 +753,8 @@ def iri_14(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
         ]
     )
 
+    logging.info(f"IRI-14: computed {len(df)} values")
+
     return df
 
 
@@ -731,6 +779,8 @@ def iri_141(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
             pl.col("IRI-14-1").alias("value"),
         ]
     )
+
+    logging.info(f"IRI-141: computed {len(df)} values")
 
     return df
 
@@ -757,6 +807,8 @@ def iri_15(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
             pl.col("IRI-15").alias("value") == "Oui",
         ]
     )
+
+    logging.info(f"IRI-15: computed {len(df)} values")
 
     return df
 
@@ -940,6 +992,8 @@ def iri_16(
     dataframes = [df for df in [df1, df2, df3, df4] if df is not None]
     df = pl.concat(dataframes)
 
+    logging.info(f"IRI-16: computed {len(df)} values")
+
     return df
 
 
@@ -1001,6 +1055,8 @@ def iri_17(
     df = pl.concat([df1, df2])
     df = df.filter(pl.col("numerator") <= pl.col("denominator"))
 
+    logging.info(f"IRI-17: computed {len(df)} values")
+
     return df
 
 
@@ -1026,6 +1082,8 @@ def iri_18(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
         ]
     )
 
+    logging.info(f"IRI-18: computed {len(df)} values")
+
     return df
 
 
@@ -1050,6 +1108,8 @@ def iri_181(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
             pl.col("IRI-18-1").alias("value"),
         ]
     )
+
+    logging.info(f"IRI-181: computed {len(df)} values")
 
     return df
 
@@ -1078,6 +1138,8 @@ def reg_int_1(indicateurs_regionaux: pl.DataFrame) -> pl.DataFrame:
             pl.col("Reg-Int-1").alias("value"),
         ]
     )
+
+    logging.info(f"Reg-Int-1: computed {len(df)} values")
 
     return df
 
@@ -1108,6 +1170,8 @@ def reg_int_2(indicateurs_regionaux: pl.DataFrame) -> pl.DataFrame:
         ]
     )
 
+    logging.info(f"Reg-Int-2: computed {len(df)} values")
+
     return df
 
 
@@ -1137,6 +1201,8 @@ def reg_int_4(indicateurs_regionaux: pl.DataFrame) -> pl.DataFrame:
         ]
     )
 
+    logging.info(f"Reg-Int-4: computed {len(df)} values")
+
     return df
 
 
@@ -1165,6 +1231,8 @@ def reg_int_5(indicateurs_regionaux: pl.DataFrame) -> pl.DataFrame:
             pl.col("Reg-Int-5").alias("value"),
         ]
     )
+
+    logging.info(f"Reg-Int-5: computed {len(df)} values")
 
     return df
 

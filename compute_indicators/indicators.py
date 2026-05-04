@@ -1139,7 +1139,7 @@ def reg_int_1(indicateurs_regionaux: pl.DataFrame) -> pl.DataFrame:
         ]
     )
 
-    logging.info(f"Reg-Int-1: computed {len(df)} values")
+    logging.info(f"Reg Int 1: computed {len(df)} values")
 
     return df
 
@@ -1170,7 +1170,7 @@ def reg_int_2(indicateurs_regionaux: pl.DataFrame) -> pl.DataFrame:
         ]
     )
 
-    logging.info(f"Reg-Int-2: computed {len(df)} values")
+    logging.info(f"Reg Int 2: computed {len(df)} values")
 
     return df
 
@@ -1201,7 +1201,7 @@ def reg_int_4(indicateurs_regionaux: pl.DataFrame) -> pl.DataFrame:
         ]
     )
 
-    logging.info(f"Reg-Int-4: computed {len(df)} values")
+    logging.info(f"Reg Int 4: computed {len(df)} values")
 
     return df
 
@@ -1232,7 +1232,7 @@ def reg_int_5(indicateurs_regionaux: pl.DataFrame) -> pl.DataFrame:
         ]
     )
 
-    logging.info(f"Reg-Int-5: computed {len(df)} values")
+    logging.info(f"Reg Int 5: computed {len(df)} values")
 
     return df
 
@@ -1262,6 +1262,8 @@ def reg_int_6(indicateurs_regionaux: pl.DataFrame) -> pl.DataFrame:
             pl.col("Reg-Int-6").alias("value"),
         ]
     )
+
+    logging.info(f"Reg Int 6: computed {len(df)} values")
 
     return df
 

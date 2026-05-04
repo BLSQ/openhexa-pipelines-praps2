@@ -7,9 +7,9 @@ def ir_1(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
     """IR-1: Taux de couverture vaccinale PPCB."""
     rows = []
 
-    df_kobo = indicateurs_pays.filter(pl.col("DATE11").is_not_null())
+    df = indicateurs_pays.filter(pl.col("DATE11").is_not_null())
 
-    for row in df_kobo.iter_rows(named=True):
+    for row in df.iter_rows(named=True):
         rows.append(
             {
                 "date": f"{row['DATE5']}-01-01",
@@ -19,9 +19,9 @@ def ir_1(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
                 "value": row["DATE11"] / 100,
             }
         )
-    df_kobo = pl.DataFrame(rows)
+    df = pl.DataFrame(rows)
 
-    return df_kobo
+    return df
 
 
 def ir_2(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
@@ -58,9 +58,9 @@ def ir_2(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
             }
         )
 
-    df_kobo = pl.DataFrame(rows)
+    df = pl.DataFrame(rows)
 
-    return df_kobo
+    return df
 
 
 def ir_3(paysages: pl.DataFrame) -> pl.DataFrame:
@@ -119,9 +119,9 @@ def ir_3(paysages: pl.DataFrame) -> pl.DataFrame:
                 "value": value,
             }
         )
-    df_kobo = pl.DataFrame(rows)
+    df = pl.DataFrame(rows)
 
-    return df_kobo
+    return df
 
 
 def ir_4(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
@@ -136,7 +136,7 @@ def ir_4(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
     ------
     dataframe
     """
-    df_kobo = indicateurs_pays.filter(pl.col("IR-4").is_not_null()).select(
+    df = indicateurs_pays.filter(pl.col("IR-4").is_not_null()).select(
         [
             pl.lit("IR-4").alias("indicator_code"),
             pl.format("{}-01-01", pl.col("DATE5")).alias("date"),
@@ -146,7 +146,7 @@ def ir_4(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
         ]
     )
 
-    return df_kobo
+    return df
 
 
 def iri_1(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
@@ -161,7 +161,7 @@ def iri_1(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
     ------
     dataframe
     """
-    df_kobo = indicateurs_pays.filter(pl.col("IRI-1").is_not_null()).select(
+    df = indicateurs_pays.filter(pl.col("IRI-1").is_not_null()).select(
         [
             pl.lit("IRI-1").alias("indicator_code"),
             pl.format("{}-01-01", pl.col("DATE5")).alias("date"),
@@ -171,7 +171,7 @@ def iri_1(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
         ]
     )
 
-    return df_kobo
+    return df
 
 
 def iri_2(unites_veterinaires: pl.DataFrame) -> pl.DataFrame:
@@ -187,7 +187,7 @@ def iri_2(unites_veterinaires: pl.DataFrame) -> pl.DataFrame:
     ------
     dataframe
     """
-    df_kobo = unites_veterinaires.filter(
+    df = unites_veterinaires.filter(
         (pl.col("STUV5") == "Réception provisoire sans réserve")
         | (
             (pl.col("STUV5") == "Réception définitive")
@@ -211,7 +211,7 @@ def iri_2(unites_veterinaires: pl.DataFrame) -> pl.DataFrame:
         ]
     )
 
-    return df_kobo
+    return df
 
 
 def iri_3(parcs_de_vaccination: pl.DataFrame) -> pl.DataFrame:
@@ -226,7 +226,7 @@ def iri_3(parcs_de_vaccination: pl.DataFrame) -> pl.DataFrame:
     ------
     dataframe
     """
-    df_kobo = parcs_de_vaccination.filter(
+    df = parcs_de_vaccination.filter(
         (pl.col("STVAC5") == "Réception provisoire sans réserve")
         | (
             (pl.col("STVAC5") == "Réception définitive")
@@ -248,7 +248,7 @@ def iri_3(parcs_de_vaccination: pl.DataFrame) -> pl.DataFrame:
         ]
     )
 
-    return df_kobo
+    return df
 
 
 def iri_5(paysages: pl.DataFrame) -> pl.DataFrame:
@@ -264,7 +264,7 @@ def iri_5(paysages: pl.DataFrame) -> pl.DataFrame:
     ------
     dataframe
     """
-    df_kobo = paysages.filter(pl.col("CRDURA11") == "Oui").select(
+    df = paysages.filter(pl.col("CRDURA11") == "Oui").select(
         [
             pl.lit("IRI-5").alias("indicator_code"),
             pl.col("CRDURA12").alias("date"),
@@ -279,7 +279,7 @@ def iri_5(paysages: pl.DataFrame) -> pl.DataFrame:
         ]
     )
 
-    return df_kobo
+    return df
 
 
 def iri_6(points_d_eau: pl.DataFrame) -> pl.DataFrame:
@@ -295,7 +295,7 @@ def iri_6(points_d_eau: pl.DataFrame) -> pl.DataFrame:
     ------
     dataframe
     """
-    df_kobo = points_d_eau.filter(
+    df = points_d_eau.filter(
         (pl.col("STPE5") == "Réception provisoire sans réserve")
         | (
             (pl.col("STPE5") == "Réception définitive")
@@ -319,7 +319,7 @@ def iri_6(points_d_eau: pl.DataFrame) -> pl.DataFrame:
         ]
     )
 
-    return df_kobo
+    return df
 
 
 def iri_8(marches: pl.DataFrame) -> pl.DataFrame:
@@ -335,7 +335,7 @@ def iri_8(marches: pl.DataFrame) -> pl.DataFrame:
     ------
     dataframe
     """
-    df_kobo = marches.filter(
+    df = marches.filter(
         (pl.col("STMB5") == "Réception provisoire sans réserve")
         | (
             (pl.col("STMB5") == "Réception définitive")
@@ -359,7 +359,7 @@ def iri_8(marches: pl.DataFrame) -> pl.DataFrame:
         ]
     )
 
-    return df_kobo
+    return df
 
 
 def iri_9(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
@@ -375,7 +375,7 @@ def iri_9(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
     ------
     dataframe
     """
-    df_kobo = indicateurs_pays.filter(pl.col("IRI-9").is_not_null()).select(
+    df = indicateurs_pays.filter(pl.col("IRI-9").is_not_null()).select(
         [
             pl.lit("IRI-9").alias("indicator_code"),
             pl.format("{}-01-01", "DATE5").alias("date"),
@@ -385,7 +385,7 @@ def iri_9(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
         ]
     )
 
-    return df_kobo
+    return df
 
 
 def iri_10(projects: pl.DataFrame) -> pl.DataFrame:
@@ -401,7 +401,7 @@ def iri_10(projects: pl.DataFrame) -> pl.DataFrame:
     ------
     dataframe
     """
-    df_kobo = (
+    df = (
         projects.with_columns(
             (pl.col("VAINO6").fill_null(0) + pl.col("VAINO13").fill_null(0)).alias(
                 "value"
@@ -424,7 +424,7 @@ def iri_10(projects: pl.DataFrame) -> pl.DataFrame:
         .filter(pl.col("value") > 0)
     )
 
-    return df_kobo
+    return df
 
 
 def iri_101(projects: pl.DataFrame) -> pl.DataFrame:
@@ -439,7 +439,7 @@ def iri_101(projects: pl.DataFrame) -> pl.DataFrame:
     ------
     dataframe
     """
-    df_kobo = (
+    df = (
         projects.with_columns(
             (
                 pl.col("VAINO9").fill_null(0)
@@ -465,7 +465,7 @@ def iri_101(projects: pl.DataFrame) -> pl.DataFrame:
         .filter(pl.col("value") > 0)
     )
 
-    return df_kobo
+    return df
 
 
 def iri_102(projects: pl.DataFrame) -> pl.DataFrame:
@@ -480,7 +480,7 @@ def iri_102(projects: pl.DataFrame) -> pl.DataFrame:
     ------
     dataframe
     """
-    df_kobo = (
+    df = (
         projects.with_columns(
             (
                 pl.col("VAINO10").fill_null(0)
@@ -506,7 +506,7 @@ def iri_102(projects: pl.DataFrame) -> pl.DataFrame:
         .filter(pl.col("value") > 0)
     )
 
-    return df_kobo
+    return df
 
 
 def iri_103(projects: pl.DataFrame) -> pl.DataFrame:
@@ -521,7 +521,7 @@ def iri_103(projects: pl.DataFrame) -> pl.DataFrame:
     ------
     dataframe
     """
-    df_kobo = (
+    df = (
         projects.with_columns(
             (pl.col("VAINO7").fill_null(0) + pl.col("VAINO14").fill_null(0)).alias(
                 "value"
@@ -544,7 +544,7 @@ def iri_103(projects: pl.DataFrame) -> pl.DataFrame:
         .filter(pl.col("value") > 0)
     )
 
-    return df_kobo
+    return df
 
 
 def iri_13(activites: pl.DataFrame) -> pl.DataFrame:
@@ -559,7 +559,7 @@ def iri_13(activites: pl.DataFrame) -> pl.DataFrame:
     ------
     dataframe
     """
-    df_kobo = activites.filter(pl.col("VAAGR6").is_not_null()).select(
+    df = activites.filter(pl.col("VAAGR6").is_not_null()).select(
         [
             pl.lit("IRI-13").alias("indicator_code"),
             pl.col("DATE").alias("date"),
@@ -574,7 +574,7 @@ def iri_13(activites: pl.DataFrame) -> pl.DataFrame:
         ]
     )
 
-    return df_kobo
+    return df
 
 
 def iri_131(activites: pl.DataFrame) -> pl.DataFrame:
@@ -589,7 +589,7 @@ def iri_131(activites: pl.DataFrame) -> pl.DataFrame:
     ------
     dataframe
     """
-    df_kobo = (
+    df = (
         activites.with_columns(
             (pl.col("VAAGR8").fill_null(0) + pl.col("VAAGR10").fill_null(0)).alias(
                 "value"
@@ -612,7 +612,7 @@ def iri_131(activites: pl.DataFrame) -> pl.DataFrame:
         .filter(pl.col("value") > 0)
     )
 
-    return df_kobo
+    return df
 
 
 def iri_132(activites: pl.DataFrame) -> pl.DataFrame:
@@ -627,7 +627,7 @@ def iri_132(activites: pl.DataFrame) -> pl.DataFrame:
     ------
     dataframe
     """
-    df_kobo = (
+    df = (
         activites.with_columns(
             (pl.col("VAAGR9").fill_null(0) + pl.col("VAAGR11").fill_null(0)).alias(
                 "value"
@@ -650,7 +650,7 @@ def iri_132(activites: pl.DataFrame) -> pl.DataFrame:
         .filter(pl.col("value") > 0)
     )
 
-    return df_kobo
+    return df
 
 
 def iri_133(activites: pl.DataFrame) -> pl.DataFrame:
@@ -665,7 +665,7 @@ def iri_133(activites: pl.DataFrame) -> pl.DataFrame:
     ------
     dataframe
     """
-    df_kobo = activites.filter(pl.col("VAAGR7").is_not_null()).select(
+    df = activites.filter(pl.col("VAAGR7").is_not_null()).select(
         [
             pl.lit("IRI-133").alias("indicator_code"),
             pl.col("DATE").alias("date"),
@@ -680,7 +680,7 @@ def iri_133(activites: pl.DataFrame) -> pl.DataFrame:
         ]
     )
 
-    return df_kobo
+    return df
 
 
 def iri_14(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
@@ -697,7 +697,7 @@ def iri_14(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
     ------
     dataframe
     """
-    df_kobo = indicateurs_pays.filter(pl.col("IRI-14").is_not_null()).select(
+    df = indicateurs_pays.filter(pl.col("IRI-14").is_not_null()).select(
         [
             pl.lit("IRI-14").alias("indicator_code"),
             pl.format("{}-01-01", "DATE5").alias("date"),
@@ -707,7 +707,7 @@ def iri_14(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
         ]
     )
 
-    return df_kobo
+    return df
 
 
 def iri_141(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
@@ -722,7 +722,7 @@ def iri_141(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
     ------
     dataframe
     """
-    df_kobo = indicateurs_pays.filter(pl.col("IRI-14-1").is_not_null()).select(
+    df = indicateurs_pays.filter(pl.col("IRI-14-1").is_not_null()).select(
         [
             pl.lit("IRI-141").alias("indicator_code"),
             pl.format("{}-01-01", "DATE5").alias("date"),
@@ -732,7 +732,7 @@ def iri_141(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
         ]
     )
 
-    return df_kobo
+    return df
 
 
 def iri_15(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
@@ -748,7 +748,7 @@ def iri_15(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
     ------
     dataframe
     """
-    df_kobo = indicateurs_pays.filter(pl.col("IRI-15").is_not_null()).select(
+    df = indicateurs_pays.filter(pl.col("IRI-15").is_not_null()).select(
         [
             pl.lit("IRI-15").alias("indicator_code"),
             pl.format("{}-01-01", "DATE5").alias("date"),
@@ -758,7 +758,7 @@ def iri_15(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
         ]
     )
 
-    return df_kobo
+    return df
 
 
 def iri_16(
@@ -938,9 +938,9 @@ def iri_16(
         df4 = None
 
     dataframes = [df for df in [df1, df2, df3, df4] if df is not None]
-    df_kobo = pl.concat(dataframes)
+    df = pl.concat(dataframes)
 
-    return df_kobo
+    return df
 
 
 def iri_17(
@@ -998,10 +998,10 @@ def iri_17(
         ]
     )
 
-    df_kobo = pl.concat([df1, df2])
-    df_kobo = df_kobo.filter(pl.col("numerator") <= pl.col("denominator"))
+    df = pl.concat([df1, df2])
+    df = df.filter(pl.col("numerator") <= pl.col("denominator"))
 
-    return df_kobo
+    return df
 
 
 def iri_18(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
@@ -1016,7 +1016,7 @@ def iri_18(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
     ------
     dataframe
     """
-    df_kobo = indicateurs_pays.filter(pl.col("IRI-18").is_not_null()).select(
+    df = indicateurs_pays.filter(pl.col("IRI-18").is_not_null()).select(
         [
             pl.lit("IRI-18").alias("indicator_code"),
             pl.format("{}-01-01", "DATE5").alias("date"),
@@ -1026,7 +1026,7 @@ def iri_18(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
         ]
     )
 
-    return df_kobo
+    return df
 
 
 def iri_181(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
@@ -1041,7 +1041,7 @@ def iri_181(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
     ------
     dataframe
     """
-    df_kobo = indicateurs_pays.filter(pl.col("IRI-18-1").is_not_null()).select(
+    df = indicateurs_pays.filter(pl.col("IRI-18-1").is_not_null()).select(
         [
             pl.lit("IRI-181").alias("indicator_code"),
             pl.format("{}-01-01", "DATE5").alias("date"),
@@ -1051,7 +1051,7 @@ def iri_181(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
         ]
     )
 
-    return df_kobo
+    return df
 
 
 def reg_int_1(indicateurs_regionaux: pl.DataFrame) -> pl.DataFrame:
@@ -1069,7 +1069,7 @@ def reg_int_1(indicateurs_regionaux: pl.DataFrame) -> pl.DataFrame:
     if "Reg-Int-1" not in indicateurs_regionaux.columns:
         return pl.DataFrame()
 
-    df_kobo = indicateurs_regionaux.filter(pl.col("Reg-Int-1").is_not_null()).select(
+    df = indicateurs_regionaux.filter(pl.col("Reg-Int-1").is_not_null()).select(
         [
             pl.lit("Reg Int 1").alias("indicator_code"),
             pl.format("{}-01-01", "IND5").alias("date"),
@@ -1079,7 +1079,7 @@ def reg_int_1(indicateurs_regionaux: pl.DataFrame) -> pl.DataFrame:
         ]
     )
 
-    return df_kobo
+    return df
 
 
 def reg_int_2(indicateurs_regionaux: pl.DataFrame) -> pl.DataFrame:
@@ -1098,7 +1098,7 @@ def reg_int_2(indicateurs_regionaux: pl.DataFrame) -> pl.DataFrame:
     if "Reg-Int-2" not in indicateurs_regionaux.columns:
         return pl.DataFrame()
 
-    df_kobo = indicateurs_regionaux.filter(pl.col("Reg-Int-2").is_not_null()).select(
+    df = indicateurs_regionaux.filter(pl.col("Reg-Int-2").is_not_null()).select(
         [
             pl.lit("Reg Int 2").alias("indicator_code"),
             pl.format("{}-01-01", "IND5").alias("date"),
@@ -1108,7 +1108,7 @@ def reg_int_2(indicateurs_regionaux: pl.DataFrame) -> pl.DataFrame:
         ]
     )
 
-    return df_kobo
+    return df
 
 
 def reg_int_4(indicateurs_regionaux: pl.DataFrame) -> pl.DataFrame:
@@ -1127,7 +1127,7 @@ def reg_int_4(indicateurs_regionaux: pl.DataFrame) -> pl.DataFrame:
     if "Reg-Int-4" not in indicateurs_regionaux.columns:
         return pl.DataFrame()
 
-    df_kobo = indicateurs_regionaux.filter(pl.col("Reg-Int-4").is_not_null()).select(
+    df = indicateurs_regionaux.filter(pl.col("Reg-Int-4").is_not_null()).select(
         [
             pl.lit("Reg Int 4").alias("indicator_code"),
             pl.format("{}-01-01", "IND5").alias("date"),
@@ -1137,7 +1137,7 @@ def reg_int_4(indicateurs_regionaux: pl.DataFrame) -> pl.DataFrame:
         ]
     )
 
-    return df_kobo
+    return df
 
 
 def reg_int_5(indicateurs_regionaux: pl.DataFrame) -> pl.DataFrame:
@@ -1156,7 +1156,7 @@ def reg_int_5(indicateurs_regionaux: pl.DataFrame) -> pl.DataFrame:
     if "Reg-Int-5" not in indicateurs_regionaux.columns:
         return pl.DataFrame()
 
-    df_kobo = indicateurs_regionaux.filter(pl.col("Reg-Int-5").is_not_null()).select(
+    df = indicateurs_regionaux.filter(pl.col("Reg-Int-5").is_not_null()).select(
         [
             pl.lit("Reg Int 5").alias("indicator_code"),
             pl.format("{}-01-01", "IND5").alias("date"),
@@ -1166,7 +1166,7 @@ def reg_int_5(indicateurs_regionaux: pl.DataFrame) -> pl.DataFrame:
         ]
     )
 
-    return df_kobo
+    return df
 
 
 def reg_int_6(indicateurs_regionaux: pl.DataFrame) -> pl.DataFrame:
@@ -1185,7 +1185,7 @@ def reg_int_6(indicateurs_regionaux: pl.DataFrame) -> pl.DataFrame:
     if "Reg-Int-6" not in indicateurs_regionaux.columns:
         return pl.DataFrame()
 
-    df_kobo = indicateurs_regionaux.filter(pl.col("Reg-Int-6").is_not_null()).select(
+    df = indicateurs_regionaux.filter(pl.col("Reg-Int-6").is_not_null()).select(
         [
             pl.lit("Reg Int 6").alias("indicator_code"),
             pl.format("{}-01-01", "IND5").alias("date"),
@@ -1195,7 +1195,7 @@ def reg_int_6(indicateurs_regionaux: pl.DataFrame) -> pl.DataFrame:
         ]
     )
 
-    return df_kobo
+    return df
 
 
 def load_praps1_data(fname: str) -> pl.DataFrame:

@@ -1,12 +1,9 @@
-import logging
 from pathlib import Path
 from typing import Sequence
-
-from openhexa.sdk import current_run
 import polars as pl
 
 
-def ir_1(indicateurs_pays: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFrame:
+def ir_1(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
     """IR-1: Taux de couverture vaccinale PPCB."""
     rows = []
 
@@ -24,12 +21,10 @@ def ir_1(indicateurs_pays: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFrame
         )
     df_kobo = pl.DataFrame(rows)
 
-    df_combined = integrate_with_cdr(df_kobo, cdr_2025, "IR-1", is_level_6=False)
-
-    return df_combined
+    return df_kobo
 
 
-def ir_2(indicateurs_pays: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFrame:
+def ir_2(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
     """IR-2: Nombre de petits ruminants vaccinés et marqués contre la PPR
 
     Parameters
@@ -65,12 +60,10 @@ def ir_2(indicateurs_pays: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFrame
 
     df_kobo = pl.DataFrame(rows)
 
-    df_combined = integrate_with_cdr(df_kobo, cdr_2025, "IR-2", is_level_6=False)
-
-    return df_combined
+    return df_kobo
 
 
-def ir_3(paysages: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFrame:
+def ir_3(paysages: pl.DataFrame) -> pl.DataFrame:
     """IR-3: Superficie de terres sous pratique de gestion durable des paysages
 
     Parameters
@@ -128,12 +121,10 @@ def ir_3(paysages: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFrame:
         )
     df_kobo = pl.DataFrame(rows)
 
-    df_combined = integrate_with_cdr(df_kobo, cdr_2025, "IR-3", is_level_6=True)
-
-    return df_combined
+    return df_kobo
 
 
-def ir_4(indicateurs_pays: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFrame:
+def ir_4(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
     """IR-4: Accroissement des revenus des ménages pastoraux générés par l’appui du projet
 
     Parameters
@@ -154,14 +145,11 @@ def ir_4(indicateurs_pays: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFrame
             pl.col("IR-4").alias("value"),
         ]
     )
-    df_kobo = df_kobo.with_columns(pl.lit("kobo").alias("source"))
 
-    df_combined = integrate_with_cdr(df_kobo, cdr_2025, "IR-4", is_level_6=False)
-
-    return df_combined
+    return df_kobo
 
 
-def iri_1(indicateurs_pays: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFrame:
+def iri_1(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
     """IRI-1: Niveau de mise en œuvre des plans nationaux stratégiques pour la PPR et la PPCB
 
     Parameters
@@ -182,14 +170,11 @@ def iri_1(indicateurs_pays: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFram
             pl.col("IRI-1").alias("value") / 100,
         ]
     )
-    df_kobo = df_kobo.with_columns(pl.lit("kobo").alias("source"))
 
-    df_combined = integrate_with_cdr(df_kobo, cdr_2025, "IRI-1", is_level_6=False)
-
-    return df_combined
+    return df_kobo
 
 
-def iri_2(unites_veterinaires: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFrame:
+def iri_2(unites_veterinaires: pl.DataFrame) -> pl.DataFrame:
     """IRI-2: Unités vétérinaires construites ou réhabilitées par le projet et
     fonctionnelles dans les zones ciblées
 
@@ -226,12 +211,10 @@ def iri_2(unites_veterinaires: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataF
         ]
     )
 
-    df_combined = integrate_with_cdr(df_kobo, cdr_2025, "IRI-2", is_level_6=True)
-
-    return df_combined
+    return df_kobo
 
 
-def iri_3(parcs_de_vaccination: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFrame:
+def iri_3(parcs_de_vaccination: pl.DataFrame) -> pl.DataFrame:
     """IRI-3: Parcs de vaccination construits ou réhabilités par le projet dans les zones ciblées
 
     Parameters
@@ -265,12 +248,10 @@ def iri_3(parcs_de_vaccination: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.Data
         ]
     )
 
-    df_combined = integrate_with_cdr(df_kobo, cdr_2025, "IRI-3", is_level_6=True)
-
-    return df_combined
+    return df_kobo
 
 
-def iri_5(paysages: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFrame:
+def iri_5(paysages: pl.DataFrame) -> pl.DataFrame:
     """IRI-5: Comités fonctionnels pour la gestion durable des territoires facilitant la
     mobilité mis en place ou appuyés par le projet
 
@@ -298,12 +279,10 @@ def iri_5(paysages: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFrame:
         ]
     )
 
-    df_combined = integrate_with_cdr(df_kobo, cdr_2025, "IRI-5", is_level_6=True)
-
-    return df_combined
+    return df_kobo
 
 
-def iri_6(points_d_eau: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFrame:
+def iri_6(points_d_eau: pl.DataFrame) -> pl.DataFrame:
     """IRI-6: Point d'eau fonctionnels accessibles aux (agro) pasteurs sur les axes de
     déplacement et sur les nouveaux parcours de transhumance appuyés par le projet
 
@@ -340,12 +319,10 @@ def iri_6(points_d_eau: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFrame:
         ]
     )
 
-    df_combined = integrate_with_cdr(df_kobo, cdr_2025, "IRI-6", is_level_6=True)
-
-    return df_combined
+    return df_kobo
 
 
-def iri_8(marches: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFrame:
+def iri_8(marches: pl.DataFrame) -> pl.DataFrame:
     """IRI-8: Marchés opérationnels selon les critères définis réhabilités et
     construits grâce au projet sur les couloirs régionaux
 
@@ -381,12 +358,11 @@ def iri_8(marches: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFrame:
             pl.lit(1).alias("value"),
         ]
     )
-    df_combined = integrate_with_cdr(df_kobo, cdr_2025, "IRI-8", is_level_6=True)
 
-    return df_combined
+    return df_kobo
 
 
-def iri_9(indicateurs_pays: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFrame:
+def iri_9(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
     """IRI-9: Taux d'exécution des plans d'actions élaborés par les organisations pastorales
     faîtières (part appuyée par le projet)
 
@@ -409,12 +385,10 @@ def iri_9(indicateurs_pays: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFram
         ]
     )
 
-    df_combined = integrate_with_cdr(df_kobo, cdr_2025, "IRI-9", is_level_6=False)
-
-    return df_combined
+    return df_kobo
 
 
-def iri_10(projects: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFrame:
+def iri_10(projects: pl.DataFrame) -> pl.DataFrame:
     """IRI-10: Bénéficiaires des sous-projets innovants de valorisation des filières pastorales
     promus par le projet
 
@@ -450,12 +424,10 @@ def iri_10(projects: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFrame:
         .filter(pl.col("value") > 0)
     )
 
-    df_combined = integrate_with_cdr(df_kobo, cdr_2025, "IRI-10", is_level_6=True)
-
-    return df_combined
+    return df_kobo
 
 
-def iri_101(projects: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFrame:
+def iri_101(projects: pl.DataFrame) -> pl.DataFrame:
     """IRI-101: Dont jeunes 18-24 ans
 
     Parameters
@@ -493,12 +465,10 @@ def iri_101(projects: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFrame:
         .filter(pl.col("value") > 0)
     )
 
-    df_combined = integrate_with_cdr(df_kobo, cdr_2025, "IRI-101", is_level_6=True)
-
-    return df_combined
+    return df_kobo
 
 
-def iri_102(projects: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFrame:
+def iri_102(projects: pl.DataFrame) -> pl.DataFrame:
     """IRI-102: Dont jeunes 25-40 ans
 
     Parameters
@@ -536,12 +506,10 @@ def iri_102(projects: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFrame:
         .filter(pl.col("value") > 0)
     )
 
-    df_combined = integrate_with_cdr(df_kobo, cdr_2025, "IRI-102", is_level_6=True)
-
-    return df_combined
+    return df_kobo
 
 
-def iri_103(projects: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFrame:
+def iri_103(projects: pl.DataFrame) -> pl.DataFrame:
     """IRI-103: Dont femmes
 
     Parameters
@@ -576,12 +544,10 @@ def iri_103(projects: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFrame:
         .filter(pl.col("value") > 0)
     )
 
-    df_combined = integrate_with_cdr(df_kobo, cdr_2025, "IRI-103", is_level_6=True)
-
-    return df_combined
+    return df_kobo
 
 
-def iri_13(activites: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFrame:
+def iri_13(activites: pl.DataFrame) -> pl.DataFrame:
     """IRI-13: Bénéficiaires directs d'activités génératrices de revenus promues par le projet
 
     Parameters
@@ -608,12 +574,10 @@ def iri_13(activites: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFrame:
         ]
     )
 
-    df_combined = integrate_with_cdr(df_kobo, cdr_2025, "IRI-13", is_level_6=True)
-
-    return df_combined
+    return df_kobo
 
 
-def iri_131(activites: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFrame:
+def iri_131(activites: pl.DataFrame) -> pl.DataFrame:
     """IRI-131: Dont jeunes 18-24 ans
 
     Parameters
@@ -648,12 +612,10 @@ def iri_131(activites: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFrame:
         .filter(pl.col("value") > 0)
     )
 
-    df_combined = integrate_with_cdr(df_kobo, cdr_2025, "IRI-131", is_level_6=True)
-
-    return df_combined
+    return df_kobo
 
 
-def iri_132(activites: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFrame:
+def iri_132(activites: pl.DataFrame) -> pl.DataFrame:
     """IRI-132: Dont jeunes 25-40 ans
 
     Parameters
@@ -688,12 +650,10 @@ def iri_132(activites: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFrame:
         .filter(pl.col("value") > 0)
     )
 
-    df_combined = integrate_with_cdr(df_kobo, cdr_2025, "IRI-132", is_level_6=True)
-
-    return df_combined
+    return df_kobo
 
 
-def iri_133(activites: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFrame:
+def iri_133(activites: pl.DataFrame) -> pl.DataFrame:
     """IRI-133: Dont femmes
 
     Parameters
@@ -720,12 +680,10 @@ def iri_133(activites: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFrame:
         ]
     )
 
-    df_combined = integrate_with_cdr(df_kobo, cdr_2025, "IRI-133", is_level_6=True)
-
-    return df_combined
+    return df_kobo
 
 
-def iri_14(indicateurs_pays: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFrame:
+def iri_14(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
     """IRI-14: Cadres techniques et scientifiques formés sur le pastoralisme
     (dont formations diplômantes)
 
@@ -749,12 +707,10 @@ def iri_14(indicateurs_pays: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFra
         ]
     )
 
-    df_combined = integrate_with_cdr(df_kobo, cdr_2025, "IRI-14", is_level_6=False)
-
-    return df_combined
+    return df_kobo
 
 
-def iri_141(indicateurs_pays: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFrame:
+def iri_141(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
     """IRI-141: Dont femmes
 
     Parameters
@@ -775,12 +731,11 @@ def iri_141(indicateurs_pays: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFr
             pl.col("IRI-14-1").alias("value"),
         ]
     )
-    df_combined = integrate_with_cdr(df_kobo, cdr_2025, "IRI-141", is_level_6=False)
 
-    return df_combined
+    return df_kobo
 
 
-def iri_15(indicateurs_pays: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFrame:
+def iri_15(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
     """IRI-15: Paramètres spécifiques ou pastoralisme pérennisé dans le système
     d'alerte précoce national
 
@@ -802,9 +757,8 @@ def iri_15(indicateurs_pays: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFra
             pl.col("IRI-15").alias("value") == "Oui",
         ]
     )
-    df_combined = integrate_with_cdr(df_kobo, cdr_2025, "IRI-15", is_level_6=False)
 
-    return df_combined
+    return df_kobo
 
 
 def iri_16(
@@ -812,7 +766,6 @@ def iri_16(
     gestion_durable: pl.DataFrame,
     points_d_eau: pl.DataFrame,
     marches_a_betail: pl.DataFrame,
-    cdr_2025: pl.DataFrame,
 ) -> pl.DataFrame:
     """IRI-16: Comité de gestion ayant au moins 15% de femmes participant activement
 
@@ -987,15 +940,12 @@ def iri_16(
     dataframes = [df for df in [df1, df2, df3, df4] if df is not None]
     df_kobo = pl.concat(dataframes)
 
-    df_combined = integrate_with_cdr(df_kobo, cdr_2025, "IRI-16", is_level_6=True)
-
-    return df_combined
+    return df_kobo
 
 
 def iri_17(
     sous_projets: pl.DataFrame,
     activites: pl.DataFrame,
-    cdr_2025: pl.DataFrame,
 ) -> pl.DataFrame:
     """IRI-17: Femmes ayant reçu des formations en gestion financière (%)
 
@@ -1051,12 +1001,10 @@ def iri_17(
     df_kobo = pl.concat([df1, df2])
     df_kobo = df_kobo.filter(pl.col("numerator") <= pl.col("denominator"))
 
-    df_combined = integrate_with_cdr(df_kobo, cdr_2025, "IRI-17", is_level_6=True)
-
-    return df_combined
+    return df_kobo
 
 
-def iri_18(indicateurs_pays: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFrame:
+def iri_18(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
     """IRI-18: Agriculteurs ayant bénéficié d'actifs ou services agricoles
 
     Parameters
@@ -1078,12 +1026,10 @@ def iri_18(indicateurs_pays: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFra
         ]
     )
 
-    df_combined = integrate_with_cdr(df_kobo, cdr_2025, "IRI-18", is_level_6=False)
-
-    return df_combined
+    return df_kobo
 
 
-def iri_181(indicateurs_pays: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFrame:
+def iri_181(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
     """IRI-181: Dont femmes (30%)
 
     Parameters
@@ -1105,14 +1051,10 @@ def iri_181(indicateurs_pays: pl.DataFrame, cdr_2025: pl.DataFrame) -> pl.DataFr
         ]
     )
 
-    df_combined = integrate_with_cdr(df_kobo, cdr_2025, "IRI-181", is_level_6=False)
-
-    return df_combined
+    return df_kobo
 
 
-def reg_int_1(
-    indicateurs_regionaux: pl.DataFrame, cdr_2025: pl.DataFrame
-) -> pl.DataFrame:
+def reg_int_1(indicateurs_regionaux: pl.DataFrame) -> pl.DataFrame:
     """Reg-Int-1: Comité Vétérinaire Régional opérationnel
 
     Parameters
@@ -1137,14 +1079,10 @@ def reg_int_1(
         ]
     )
 
-    df_combined = integrate_with_cdr(df_kobo, cdr_2025, "Reg Int 1", is_level_6=False)
-
-    return df_combined
+    return df_kobo
 
 
-def reg_int_2(
-    indicateurs_regionaux: pl.DataFrame, cdr_2025: pl.DataFrame
-) -> pl.DataFrame:
+def reg_int_2(indicateurs_regionaux: pl.DataFrame) -> pl.DataFrame:
     """Reg-Int-2: Accords bilatéraux et multilatéraux facilitant une transhumance
     pacifique établis grâce au projet
 
@@ -1170,14 +1108,10 @@ def reg_int_2(
         ]
     )
 
-    df_combined = integrate_with_cdr(df_kobo, cdr_2025, "Reg Int 2", is_level_6=False)
-
-    return df_combined
+    return df_kobo
 
 
-def reg_int_4(
-    indicateurs_regionaux: pl.DataFrame, cdr_2025: pl.DataFrame
-) -> pl.DataFrame:
+def reg_int_4(indicateurs_regionaux: pl.DataFrame) -> pl.DataFrame:
     """Reg-Int-4: Barrières commerciales suivies dans des zones de commercialisation
     transfrontalière sélectionnées et diffusées par le projet
 
@@ -1203,14 +1137,10 @@ def reg_int_4(
         ]
     )
 
-    df_combined = integrate_with_cdr(df_kobo, cdr_2025, "Reg Int 4", is_level_6=False)
-
-    return df_combined
+    return df_kobo
 
 
-def reg_int_5(
-    indicateurs_regionaux: pl.DataFrame, cdr_2025: pl.DataFrame
-) -> pl.DataFrame:
+def reg_int_5(indicateurs_regionaux: pl.DataFrame) -> pl.DataFrame:
     """Reg-Int-5: Capacités institutionnelles nationales et régionales renforcées pour
     élaborer des politiques et stratégies d'élevage tenant compte du climat
 
@@ -1236,14 +1166,10 @@ def reg_int_5(
         ]
     )
 
-    df_combined = integrate_with_cdr(df_kobo, cdr_2025, "Reg Int 5", is_level_6=False)
-
-    return df_combined
+    return df_kobo
 
 
-def reg_int_6(
-    indicateurs_regionaux: pl.DataFrame, cdr_2025: pl.DataFrame
-) -> pl.DataFrame:
+def reg_int_6(indicateurs_regionaux: pl.DataFrame) -> pl.DataFrame:
     """Reg-Int-6: Capacité régionale renforcée pour mener des analyses prospectives sur
     le secteur de l'élevage
 
@@ -1269,9 +1195,7 @@ def reg_int_6(
         ]
     )
 
-    df_combined = integrate_with_cdr(df_kobo, cdr_2025, "Reg Int 6", is_level_6=False)
-
-    return df_combined
+    return df_kobo
 
 
 def load_praps1_data(fname: str) -> pl.DataFrame:
@@ -1312,9 +1236,11 @@ def load_praps1_data(fname: str) -> pl.DataFrame:
     return df
 
 
-def load_cdr_2025_data(cdr_dir: str, fname: str) -> pl.DataFrame:
-    """Load processed CDR 2025 data in parquet format."""
-    return pl.read_parquet(Path(cdr_dir, "processed", fname))
+def load_cdr_data(cdr_dir: str, fname: str) -> pl.DataFrame:
+    """Load processed CDR data in parquet format."""
+    df_cdr = pl.read_parquet(Path(cdr_dir, "processed", fname))
+    df_cdr = df_cdr.with_columns(pl.lit("cdr").alias("data_source"))
+    return df_cdr
 
 
 def combine_indicators(
@@ -1328,47 +1254,45 @@ def combine_indicators(
     sous_projets: pl.DataFrame,
     activites: pl.DataFrame,
     praps1: pl.DataFrame,
-    cdr_2025: pl.DataFrame,
 ) -> pl.DataFrame:
     """Compute PRAPS2 indicators from survey data and concatenate PRAPS1 indicator values."""
     dataframes = [
-        ir_1(indicateurs_pays, cdr_2025),
-        ir_2(indicateurs_pays, cdr_2025),
-        ir_3(gestion_durable, cdr_2025),
-        ir_4(indicateurs_pays, cdr_2025),
-        iri_1(indicateurs_pays, cdr_2025),
-        iri_2(unites_veterinaires, cdr_2025),
-        iri_3(parcs_de_vaccination, cdr_2025),
-        iri_5(gestion_durable, cdr_2025),
-        iri_6(points_d_eau, cdr_2025),
-        iri_8(marches_a_betail, cdr_2025),
-        iri_9(indicateurs_pays, cdr_2025),
-        iri_10(sous_projets, cdr_2025),
-        iri_101(sous_projets, cdr_2025),
-        iri_102(sous_projets, cdr_2025),
-        iri_103(sous_projets, cdr_2025),
-        iri_13(activites, cdr_2025),
-        iri_131(activites, cdr_2025),
-        iri_132(activites, cdr_2025),
-        iri_133(activites, cdr_2025),
-        iri_14(indicateurs_pays, cdr_2025),
-        iri_141(indicateurs_pays, cdr_2025),
-        iri_15(indicateurs_pays, cdr_2025),
+        ir_1(indicateurs_pays),
+        ir_2(indicateurs_pays),
+        ir_3(gestion_durable),
+        ir_4(indicateurs_pays),
+        iri_1(indicateurs_pays),
+        iri_2(unites_veterinaires),
+        iri_3(parcs_de_vaccination),
+        iri_5(gestion_durable),
+        iri_6(points_d_eau),
+        iri_8(marches_a_betail),
+        iri_9(indicateurs_pays),
+        iri_10(sous_projets),
+        iri_101(sous_projets),
+        iri_102(sous_projets),
+        iri_103(sous_projets),
+        iri_13(activites),
+        iri_131(activites),
+        iri_132(activites),
+        iri_133(activites),
+        iri_14(indicateurs_pays),
+        iri_141(indicateurs_pays),
+        iri_15(indicateurs_pays),
         iri_16(
             parcs_de_vaccination,
             gestion_durable,
             points_d_eau,
             marches_a_betail,
-            cdr_2025,
         ),
-        iri_17(sous_projets, activites, cdr_2025),
-        iri_18(indicateurs_pays, cdr_2025),
-        iri_181(indicateurs_pays, cdr_2025),
-        reg_int_1(indicateurs_regionaux, cdr_2025),
-        reg_int_2(indicateurs_regionaux, cdr_2025),
-        reg_int_4(indicateurs_regionaux, cdr_2025),
-        reg_int_5(indicateurs_regionaux, cdr_2025),
-        reg_int_6(indicateurs_regionaux, cdr_2025),
+        iri_17(sous_projets, activites),
+        iri_18(indicateurs_pays),
+        iri_181(indicateurs_pays),
+        reg_int_1(indicateurs_regionaux),
+        reg_int_2(indicateurs_regionaux),
+        reg_int_4(indicateurs_regionaux),
+        reg_int_5(indicateurs_regionaux),
+        reg_int_6(indicateurs_regionaux),
     ]
 
     praps2 = pl.concat(
@@ -1378,53 +1302,6 @@ def combine_indicators(
     df = pl.concat([praps1, praps2], how="diagonal_relaxed")
 
     return df
-
-
-def integrate_with_cdr(
-    df_kobo: pl.DataFrame,
-    df_cdr: pl.DataFrame,
-    indicator_code: str,
-    is_level_6: bool = False,
-) -> pl.DataFrame:
-    """
-    General helper to merge Kobo data with CDR 2025 data.
-    Prioritizes CDR 2025 data over Kobo data for the same keys.
-    """
-    df_kobo = df_kobo.with_columns(pl.lit("kobo").alias("source"))
-
-    df_cdr_filtered = (
-        df_cdr.filter(pl.col("indicator_code") == indicator_code)
-        .select(["date", "level", "country", "indicator_code", "value", "source"])
-        .with_columns(
-            pl.col("date").cast(pl.String).str.to_date(strict=False)
-            if df_cdr.schema["date"] == pl.String
-            else pl.col("date")
-        )
-    )
-
-    if is_level_6:
-        df_kobo = df_kobo.with_columns(pl.col("date").dt.year().alias("temp_year"))
-        df_cdr_filtered = df_cdr_filtered.with_columns(
-            pl.col("date").dt.year().alias("temp_year")
-        )
-        cdr_slots = df_cdr_filtered.select(["temp_year", "country"]).unique()
-        df_kobo_cleaned = df_kobo.join(
-            cdr_slots, on=["temp_year", "country"], how="anti"
-        )  # keep kobo rows ONLY if they DON'T match a CDR slot
-        df_combined = pl.concat(
-            [df_kobo_cleaned, df_cdr_filtered], how="diagonal_relaxed"
-        )
-        df_combined = df_combined.drop("temp_year")
-    else:
-        subset_keys = ["date", "level", "country", "indicator_code"]
-        df_combined = (
-            pl.concat([df_kobo, df_cdr_filtered], how="diagonal_relaxed")
-            .sort("source", descending=True)  # "kobo" first, "cdr_2025" last
-            .unique(subset=subset_keys, keep="last")
-        )
-
-    current_run.log_info(f"{indicator_code}: computed {len(df_combined)} values.")
-    return df_combined
 
 
 def join_metadata(df: pl.DataFrame, indicators_metadata: pl.DataFrame) -> pl.DataFrame:
@@ -1774,3 +1651,12 @@ def retro_compatibility(df: pl.DataFrame) -> pl.DataFrame:
             pl.col("cumulated_value_praps2").alias("cumulative_value_praps2"),
         ]
     )
+
+
+def integrate_cdr_data(df_kobo: pl.DataFrame, cdr_dir: str) -> pl.DataFrame:
+    """Integrate PRAPS2 indicators computed from Kobo data with indicators computed from CDR data."""
+    df_cdr_2025 = load_cdr_data(cdr_dir, "cdr_transformed_2025.parquet")
+    df_kobo = df_kobo.with_columns(pl.lit("kobo").alias("data_source"))
+    combined_df = pl.concat([df_kobo, df_cdr_2025], how="diagonal_relaxed")
+
+    return combined_df

@@ -27,32 +27,22 @@ import config
     name="Fichier de nomenclature des indicateurs du CDR",
     help="Fichier de nomenclature des indicateurs du CDR",
     type=str,
-    default="data/cdr/indicators_metadata.csv",
+    default="data/cdr/indicators_metadata_20260504.csv",
 )
-# @parameter(
-#     "survey_dir",
-#     name="Dossier d'entrée (fiches)",
-#     help="Répertoire où les fiches sont stockées",
-#     type=str,
-#     default="data/kobo/raw",
-# )
 def process_cdr(
     cdr_raw_dir: str,
     cdr_processed_dir: str,
     cdr_indicators_ref_file: str,
-    # survey_dir: str,
 ):
     """
     Pipeline to process CDR Excel file and transform it into a long format Polars dataframe.
     """
     cdr_raw = import_file(cdr_raw_dir)
     cdr_indicators_map = import_indicators_map(cdr_indicators_ref_file)
-    # survey_df_list = import_survey_data(survey_dir)
 
     cdr_df = process(cdr_raw)
     cdr_df = assign_indicator_codes(cdr_df, cdr_indicators_map)
     cdr_df = final_cleaning(cdr_df)
-    # integrate_indicator_values(cdr_df, survey_df_list)
     save_output(cdr_df, cdr_processed_dir, "cdr_transformed_2025")
 
 
@@ -77,11 +67,13 @@ def import_file(cdr_dir: str) -> pl.DataFrame:
     return df_raw
 
 
-def import_indicators_map(ref_file: str) -> pl.DataFrame:
+def import_indicators_map(cdr_indicators_ref_file: str) -> pl.DataFrame:
     """Import the indicators reference file which contains mapping of indicator names to codes and other metadata."""
-    ref_path = Path(workspace.files_path, ref_file)
+    ref_path = Path(workspace.files_path, cdr_indicators_ref_file)
     if not ref_path.exists():
-        raise FileNotFoundError(f"Indicators reference file {ref_file} not found.")
+        raise FileNotFoundError(
+            f"Indicators reference file {cdr_indicators_ref_file} not found."
+        )
 
     indicators_map = pl.read_csv(ref_path)
     current_run.log_info(
@@ -186,6 +178,7 @@ def assign_indicator_codes(
     cdr_indicators_map = cdr_indicators_map.with_columns(
         utils.normalize_indicator_column("designation").alias("Indicateur_Name_clean")
     )
+
     # drop sub-indicators (those starting with the term "Dont ") (these will be calculated later on)
     cdr_indicators_map = cdr_indicators_map.filter(
         ~pl.col("Indicateur_Name_clean").str.starts_with("dont ")
@@ -197,11 +190,16 @@ def assign_indicator_codes(
             [
                 pl.col("Indicateur_Name_clean"),
                 pl.col("code").alias("Code_clean"),
+                pl.col("designation").alias("indicator_name"),
+                pl.col("unite").alias(
+                    "unit"
+                ),  # to keep for future use, even if not used in current processing
             ]
         ),
         on=["Indicateur_Name_clean"],
         how="left",
     )
+
     # perform manual matching on remaining unmatched indicators using the mapping defined in config.py
     for indicator_name, code in config.missing_indicator_code_mapping.items():
         df_transformed = df_transformed.with_columns(
@@ -210,6 +208,7 @@ def assign_indicator_codes(
             .otherwise(pl.col("Code_clean"))
             .alias("Code_clean")
         )
+
     # now if an indicator has its clean name starting with "dont " it is a sub-indicator.
     # For those, use the dataset as sorted, and assign the the last code seen + the suffix
     # "1", "2", etc.
@@ -249,6 +248,7 @@ def assign_indicator_codes(
     # drop intermediate columns and rename final code column
     df_transformed = df_transformed.drop(
         [
+            "Indicateur_Name",
             "Code",
             "Indicateur_Name_clean",
             "Code_clean",
@@ -256,7 +256,7 @@ def assign_indicator_codes(
             "Parent_Code",
             "sub_suffix",
         ]
-    ).rename({"Code_final": "Code"})
+    ).rename({"Code_final": "indicator_code"})
 
     return df_transformed
 
@@ -270,20 +270,20 @@ def final_cleaning(df: pl.DataFrame) -> pl.DataFrame:
         - convert to standard values based on unit col
         - add suffix -01-01 to year to fit kobo data format
         - add level column
-        - add source column
+        - add project column
+        - add year column
         - final column names clean up
     """
     # fill in missing country values
-    regional_codes = ["FA-1", "FA-2", "FA-21", "FA-22"]
     df_cleaned = df.with_columns(
         pl.when(pl.col("Pays").is_not_null())
         .then(pl.col("Pays"))
-        .when((pl.col("Code") == "IRI-6") & (pl.col("Valeur_cibles") == 185))
+        .when((pl.col("indicator_code") == "IRI-6") & (pl.col("Valeur_cibles") == 185))
         .then(pl.lit("MR"))
-        .when((pl.col("Code") == "IRI-7") & (pl.col("Valeur_cibles") == 5576))
+        .when((pl.col("indicator_code") == "IRI-7") & (pl.col("Valeur_cibles") == 5576))
         .then(pl.lit("MR"))
-        .when(pl.col("Code").is_in(regional_codes))
-        .then(pl.lit("REGIONAL"))  # to confirm with CILLS
+        .when(pl.col("indicator_code").is_in(config.regional_indicators))
+        .then(pl.lit("REGIONAL"))
         .otherwise(pl.lit("NE"))
         .alias("Pays")
     )
@@ -320,226 +320,35 @@ def final_cleaning(df: pl.DataFrame) -> pl.DataFrame:
         .alias("Année")
     )
 
-    # add level column based on indicator code and the mapping defined in config.py
+    # add level column (level 2 (Pays) except when country contains 'Régional', in which case level is 1 (Régional))
     df_cleaned = df_cleaned.with_columns(
-        pl.col("Code")
-        .map_elements(
-            lambda x: config.indicator_levels_mapping.get(x, None),
-            return_dtype=pl.Int64,
-        )
-        .alias("level")
+        level=pl.when(pl.col("Pays").str.contains("Régional")).then(1).otherwise(2)
     )
 
-    # add source column
-    df_cleaned = df_cleaned.with_columns(pl.lit("cdr_2025").alias("source"))
+    # add project col
+    df_cleaned = df_cleaned.with_columns(pl.lit("PRAPS2").alias("project"))
+
+    # add year column
+    df_cleaned = df_cleaned.with_columns(
+        pl.col("Année").str.slice(0, 4).cast(pl.Int32).alias("year")
+    )
 
     # clean column names
-    df_cleaned = df_cleaned.rename(
-        {
-            "Pays": "country",
-            "Année": "date",
-            "Code": "indicator_code",
-            "Valeur_résultats": "value",
-            "level": "level",
-            "source": "source",
-        }
+    df_cleaned = df_cleaned.select(
+        [
+            pl.col("indicator_code"),
+            pl.col("indicator_name"),
+            pl.col("unit"),
+            pl.col("year"),
+            pl.col("Année").alias("date"),
+            pl.col("project"),
+            pl.col("level"),
+            pl.col("Pays").alias("country"),
+            pl.col("Valeur_résultats").alias("value"),
+        ]
     )
 
     return df_cleaned
-
-
-# def import_survey_data(survey_dir: str) -> list[pl.DataFrame]:
-#     """Import survey data from the specified directory and config list"""
-#     survey_path = Path(workspace.files_path, survey_dir)
-#     if not survey_path.exists() or not survey_path.is_dir():
-#         raise FileNotFoundError(
-#             f"Survey directory {survey_dir} does not exist or is not a directory."
-#         )
-
-#     survey_dataframes = []
-#     for file_name in config.survey_files_list:
-#         file_path = survey_path / f"{file_name}.parquet"
-#         if not file_path.exists():
-#             current_run.log_warning(
-#                 f"Survey file {file_name} not found in {survey_dir}. Skipping."
-#             )
-#             continue
-#         df = pl.read_parquet(file_path)
-#         df = df.with_columns(cs.numeric().cast(pl.Float64, strict=False))
-#         df = df.with_columns(pl.lit(f"kobo_{file_name}").alias("source_file"))
-#         survey_dataframes.append(df)
-#         current_run.log_info(f"Loaded survey file {file_name} with {df.height} rows.")
-
-#     if not survey_dataframes:
-#         raise ValueError(f"No survey files were loaded from {survey_dir}.")
-
-#     current_run.log_info(f"All survey dataframes loaded successfully.")
-
-#     return survey_dataframes
-
-
-# def integrate_indicator_values(
-#     cdr_df: pl.DataFrame, survey_df_list: list[pl.DataFrame]
-# ) -> pl.DataFrame:
-#     """
-#     Integrate indicator results values from the processed CDR dataframe into the relevant survey data
-#     """
-#     pl.Config.set_fmt_float("full")
-#     # indicateurs_regionaux
-#     indicateurs_regionaux_df = survey_df_list[0]
-#     if (
-#         indicateurs_regionaux_df.select(pl.col("source_file").first())[0, 0]
-#         != "kobo_indicateurs_regionaux"
-#     ):
-#         raise ValueError(
-#             "The first survey dataframe is not 'kobo_indicateurs_regionaux'"
-#         )
-#     year_col = config.surveys_metadata_mapping["indicateurs_regionaux"]["Année"]
-#     cdr_df_indicateurs_regionaux = cdr_df.select(
-#         [
-#             pl.col("Code"),
-#             pl.col("Année").cast(pl.String).alias(year_col),
-#             pl.col("Valeur_résultats").alias("Valeur_résultats"),
-#         ]
-#     )
-#     cdr_df_indicateurs_regionaux = cdr_df_indicateurs_regionaux.filter(
-#         pl.col("Code").str.starts_with("Reg-Int")
-#     )
-#     cdr_df_indicateurs_regionaux_wide = cdr_df_indicateurs_regionaux.pivot(
-#         values="Valeur_résultats", index=year_col, columns="Code"
-#     )
-#     cdr_df_indicateurs_regionaux_wide = cdr_df_indicateurs_regionaux_wide.with_columns(
-#         pl.lit("cdr").alias("source_file")
-#     )
-#     indicateurs_regionaux_df = pl.concat(
-#         [indicateurs_regionaux_df, cdr_df_indicateurs_regionaux_wide],
-#         how="diagonal",
-#     )
-#     current_run.log_info(
-#         f"Integrated CDR indicators into indicateurs_regionaux dataframe ({indicateurs_regionaux_df.height} rows)"
-#     )
-
-#     # indicateurs_pays
-#     indicateurs_pays_df = survey_df_list[1]
-#     if (
-#         indicateurs_pays_df.select(pl.col("source_file").first())[0, 0]
-#         != "kobo_indicateurs_pays"
-#     ):
-#         raise ValueError("The second survey dataframe is not 'kobo_indicateurs_pays'")
-
-#     year_col = config.surveys_metadata_mapping["indicateurs_pays"]["Année"]
-#     country_col = config.surveys_metadata_mapping["indicateurs_pays"]["Pays"]
-#     cdr_df_indicateurs_pays = cdr_df.select(
-#         [
-#             pl.col("Code"),
-#             pl.col("Année").cast(pl.String).alias(year_col),
-#             pl.col("Pays").alias(country_col),
-#             pl.col("Valeur_résultats").alias("Valeur_résultats"),
-#         ]
-#     )
-#     cdr_df_indicateurs_pays = cdr_df_indicateurs_pays.filter(
-#         pl.col("Code").is_in(
-#             [
-#                 "IR-1",
-#                 "IR-2",
-#                 "IR-4",
-#                 "IRI-1",
-#                 "IRI-9",
-#                 "IRI-14",
-#                 "IRI-14-1",
-#                 "IRI-15",
-#                 "IRI-18",
-#                 "IRI-18-1",
-#             ]
-#         )
-#     )
-#     cdr_df_indicateurs_pays = cdr_df_indicateurs_pays.with_columns(
-#         pl.when(pl.col("Code") == "IR-1")
-#         .then(pl.lit("DATE11"))
-#         .otherwise(pl.col("Code"))
-#         .alias("Code")
-#     )  # replace IR-1 by DATE11 to match the survey dataframe
-#     cdr_df_indicateurs_pays_wide = cdr_df_indicateurs_pays.pivot(
-#         values="Valeur_résultats", index=[year_col, country_col], columns="Code"
-#     )
-
-#     cdr_df_indicateurs_pays_wide = cdr_df_indicateurs_pays_wide.with_columns(
-#         pl.when(pl.col("IRI-15") == 1)
-#         .then(pl.lit("Oui"))
-#         .when(pl.col("IRI-15") == 0)
-#         .then(pl.lit("Non"))
-#         .otherwise(pl.col("IRI-15"))
-#         .alias("IRI-15")
-#     )  # convert IRI-15 values back to Oui/Non to match survey format
-#     cdr_df_indicateurs_pays_wide = cdr_df_indicateurs_pays_wide.with_columns(
-#         (pl.col("IR-2").cast(pl.Float64) * 1_000_000).alias("IR-2")
-#     )  # convert IR-2 values to millions to match survey format
-
-#     cdr_df_indicateurs_pays_wide = cdr_df_indicateurs_pays_wide.with_columns(
-#         pl.lit("cdr").alias("source_file")
-#     )
-#     indicateurs_pays_df = pl.concat(
-#         [indicateurs_pays_df, cdr_df_indicateurs_pays_wide], how="diagonal"
-#     )
-#     current_run.log_info(
-#         f"Integrated CDR indicators into indicateurs_pays dataframe ({indicateurs_pays_df.height} rows)"
-#     )
-
-#     # gestion_durable_des_paysages
-#     gestion_durable_des_paysages_df = survey_df_list[2]
-#     if (
-#         gestion_durable_des_paysages_df.select(pl.col("source_file").first())[0, 0]
-#         != "kobo_gestion_durable_des_paysages"
-#     ):
-#         raise ValueError(
-#             "The third survey dataframe is not 'kobo_gestion_durable_des_paysages'"
-#         )
-#     year_col = config.surveys_metadata_mapping["gestion_durable_des_paysages"]["Année"]
-#     country_col = config.surveys_metadata_mapping["gestion_durable_des_paysages"][
-#         "Pays"
-#     ]
-#     cdr_df_gestion_durable_des_paysages = cdr_df.select(
-#         [
-#             pl.col("Code"),
-#             pl.col("Année").cast(pl.String).alias(year_col),
-#             pl.col("Pays").alias(country_col),
-#             pl.col("Valeur_résultats").alias("Valeur_résultats"),
-#         ]
-#     )
-#     cdr_df_gestion_durable_des_paysages = cdr_df_gestion_durable_des_paysages.filter(
-#         pl.col("Code").is_in(
-#             [
-#                 "IR-3",
-#                 "IRI-5",
-#             ]
-#         )
-#     )
-#     # Add 01-01- prefix to year column and convert to date format to match survey dataframe
-#     cdr_df_gestion_durable_des_paysages = (
-#         cdr_df_gestion_durable_des_paysages.with_columns(
-#             pl.col(year_col)
-#             .cast(pl.String)
-#             .map_elements(lambda x: f"01-01-{x}", return_dtype=pl.String)
-#             .str.to_date("%d-%m-%Y")
-#         )
-#     )
-#     cdr_df_gestion_durable_des_paysages_wide = (
-#         cdr_df_gestion_durable_des_paysages.pivot(
-#             values="Valeur_résultats", index=[year_col, country_col], columns="Code"
-#         )
-#     )
-#     cdr_df_gestion_durable_des_paysages_wide = (
-#         cdr_df_gestion_durable_des_paysages_wide.with_columns(
-#             pl.lit("cdr").alias("source_file")
-#         )
-#     )
-#     gestion_durable_des_paysages_df = pl.concat(
-#         [gestion_durable_des_paysages_df, cdr_df_gestion_durable_des_paysages_wide],
-#         how="diagonal",
-#     )
-#     current_run.log_info(
-#         f"Integrated CDR indicators into gestion_durable_des_paysages dataframe ({gestion_durable_des_paysages_df.height} rows)"
-#     )
 
 
 def save_output(df: pl.DataFrame, dir_name: str, file_name: str):

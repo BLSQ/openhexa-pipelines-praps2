@@ -1,12 +1,13 @@
 missing_indicator_code_mapping = {
-    "fourrage cultive produit disponible": "IRI-7",
+    "Niveau de mise en œuvre des Plans Nationaux Stratégiques (PNS) pour la PPR et la PPCB": "IRI-1",
+    "Points d’eau fonctionnels accessibles aux (agro)pasteurs sur les axes de déplacement et sur les nouveaux parcours de transhumance appuyés par le projet": "IRI-6",
+    "Fourrage cultivé produit et disponible aux pasteurs et agro-pasteurs grâce au projet ": "IRI-7",
+    "Marchés opérationnels selon des critères définis réhabilités et construits grâce au projet le long des couloirs régionaux": "IRI-8",
+    "Femmes et jeunes issus du milieu pastoral ayant bénéficié de programmes de formation technique et professionnelle ou de formation qualifiante": "IRI-11",
+    "Cadres techniques et scientifiques formés sur le pastoralisme (y compris formations diplomantes)": "IRI-14",
 }
 
 regional_indicators = [
-    "FA-1",  # to confirm with CILLS
-    "FA-2",  # to confirm with CILLS
-    "FA-21",  # to confirm with CILLS
-    "FA-22",  # to confirm with CILLS
     "Reg Int 1",
     "Reg Int 2",
     "Reg Int 3",
@@ -26,4 +27,69 @@ country_name_mapping = {
     "TD": "Tchad",
     "REGIONAL": "Régional",
     "REGIONAL restruc": "Régional (restructuré)",
+}
+
+composante_indicator_mapping = {
+    "ODP": ["IR-1", "IR-2", "IR-3", "IR-4"],
+    "1": ["IRI-1", "IRI-2", "IRI-3", "IRI-4"],
+    "2": ["IRI-5", "IRI-6", "IRI-7", "FA-1"],
+    "3": [
+        "IRI-8",
+        "IRI-9",
+        "IRI-10",
+        "IRI-101",
+        "IRI-102",
+        "IRI-103",
+        "FA-2",
+        "FA-21",
+        "FA-22",
+    ],
+    "4": [
+        "IRI-11",
+        "IRI-111",
+        "IRI-112",
+        "IRI-113",
+        "IRI-12",
+        "IRI-13",
+        "IRI-131",
+        "IRI-132",
+        "IRI-133",
+    ],
+    "5": [
+        "IRI-14",
+        "IRI-141",
+        "IRI-15",
+        "IRI-16",
+        "IRI-17",
+        "IRI-171",
+        "IRI-18",
+        "IRI-181",
+        "FA-3",
+        "FA-31",
+        "FA-32",
+        "FA-33",
+        "FA-4",
+    ],
+    "Reg": [
+        "Reg Int 1",
+        "Reg Int 2",
+        "Reg Int 3",
+        "Reg Int 4",
+        "Reg Int 5",
+        "Reg Int 6",
+        "Reg Int 7",
+    ],
+}
+
+unit_mapping = {
+    "Ha (valeur cumulée)": "Ha (cumulé)",
+    "hectares (milliers, valeur cumulée)": "Milliers d’ha (cumulé)",
+    "nombre": "Nombre",
+    "nombre (valeur cumulée)": "Nombre (valeur cumulée)",
+    "nombre d'études (valeur cumulée)": "Nombre d'études (valeur cumulée)",
+    "nombre de pays et institutions (valeur cumulée)": "Nombre de pays et institutions (valeur cumulée)",
+    "nombre de sessions par an": "Nombre de sessions par an",
+    "oui / non": "Oui/Non",
+    "pourcentage": "Pourcentage",
+    "tonnes (valeur cumulée)": "Tonnes (cumulé)",
 }

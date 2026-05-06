@@ -77,9 +77,7 @@ def compute(survey_dir: Path, cdr_dir: str):
 
     df = indicators.join_metadata(
         df,
-        indicators_metadata=pl.read_csv(
-            Path(cdr_dir, "indicators_metadata_20260504.csv")
-        ),
+        indicators_metadata=pl.read_csv(Path(cdr_dir, "indicators_metadata.csv")),
     )
     current_run.log_info(f"Joined metadata ({len(df)} values)")
 

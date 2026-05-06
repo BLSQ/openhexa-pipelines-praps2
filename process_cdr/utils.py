@@ -35,9 +35,4 @@ def normalize_indicator_column(column_name: str) -> pl.Expr:
         .str.replace_all(r"[^\w\s]", "")
         .str.replace_all(r"\s+", " ")
         .str.strip_chars()
-        # 7. Restrict to first 4 words
-        # This regex captures (Word + space) three times + the 4th word.
-        # Everything after is discarded via the capture group $1.
-        .str.replace_all(r"^((?:\w+\s*){1,4}).*", r"$1")
-        .str.strip_chars()
     )

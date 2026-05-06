@@ -1,6 +1,6 @@
 import logging
+from pathlib import Path
 from typing import Sequence
-
 import polars as pl
 
 
@@ -20,9 +20,11 @@ def ir_1(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
                 "value": row["DATE11"] / 100,
             }
         )
+    df = pl.DataFrame(rows)
 
     logging.info(f"IR-1: computed {len(rows)} values")
-    return pl.DataFrame(rows)
+
+    return df
 
 
 def ir_2(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
@@ -126,13 +128,12 @@ def ir_3(paysages: pl.DataFrame) -> pl.DataFrame:
                 "value": value,
             }
         )
-
-    logging.info(f"IR-3: computed {len(rows)} values")
     df = pl.DataFrame(rows)
-
     df = df.sort(by="date").with_columns(
         pl.col("value").cum_sum().alias("cumulated_value").over("country")
     )
+
+    logging.info(f"IR-3: computed {len(rows)} values")
 
     return df
 
@@ -158,7 +159,9 @@ def ir_4(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
             pl.col("IR-4").alias("value"),
         ]
     )
+
     logging.info(f"IR-4: computed {len(df)} values")
+
     return df
 
 
@@ -183,7 +186,9 @@ def iri_1(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
             pl.col("IRI-1").alias("value") / 100,
         ]
     )
+
     logging.info(f"IRI-1: computed {len(df)} values")
+
     return df
 
 
@@ -223,7 +228,9 @@ def iri_2(unites_veterinaires: pl.DataFrame) -> pl.DataFrame:
             pl.lit(1).alias("value"),
         ]
     )
+
     logging.info(f"IRI-2: computed {len(df)} values")
+
     return df
 
 
@@ -260,7 +267,9 @@ def iri_3(parcs_de_vaccination: pl.DataFrame) -> pl.DataFrame:
             pl.lit(1).alias("value"),
         ]
     )
+
     logging.info(f"IRI-3: computed {len(df)} values")
+
     return df
 
 
@@ -280,7 +289,7 @@ def iri_5(paysages: pl.DataFrame) -> pl.DataFrame:
     df = paysages.filter(pl.col("CRDURA11") == "Oui").select(
         [
             pl.lit("IRI-5").alias("indicator_code"),
-            pl.format("{}-01-01", "CRDURA12").alias("date"),
+            pl.col("CRDURA12").alias("date"),
             pl.lit(6).alias("level"),
             pl.col("LODURA1").alias("country"),
             pl.col("LODURA2").alias("region"),
@@ -291,7 +300,9 @@ def iri_5(paysages: pl.DataFrame) -> pl.DataFrame:
             pl.lit(1).alias("value"),
         ]
     )
+
     logging.info(f"IRI-5: computed {len(df)} values")
+
     return df
 
 
@@ -331,7 +342,9 @@ def iri_6(points_d_eau: pl.DataFrame) -> pl.DataFrame:
             pl.lit(1).alias("value"),
         ]
     )
+
     logging.info(f"IRI-6: computed {len(df)} values")
+
     return df
 
 
@@ -371,7 +384,9 @@ def iri_8(marches: pl.DataFrame) -> pl.DataFrame:
             pl.lit(1).alias("value"),
         ]
     )
+
     logging.info(f"IRI-8: computed {len(df)} values")
+
     return df
 
 
@@ -397,7 +412,9 @@ def iri_9(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
             pl.col("IRI-9").alias("value") / 100,
         ]
     )
+
     logging.info(f"IRI-9: computed {len(df)} values")
+
     return df
 
 
@@ -436,7 +453,9 @@ def iri_10(projects: pl.DataFrame) -> pl.DataFrame:
         )
         .filter(pl.col("value") > 0)
     )
+
     logging.info(f"IRI-10: computed {len(df)} values")
+
     return df
 
 
@@ -477,7 +496,9 @@ def iri_101(projects: pl.DataFrame) -> pl.DataFrame:
         )
         .filter(pl.col("value") > 0)
     )
+
     logging.info(f"IRI-101: computed {len(df)} values")
+
     return df
 
 
@@ -518,7 +539,9 @@ def iri_102(projects: pl.DataFrame) -> pl.DataFrame:
         )
         .filter(pl.col("value") > 0)
     )
+
     logging.info(f"IRI-102: computed {len(df)} values")
+
     return df
 
 
@@ -556,7 +579,9 @@ def iri_103(projects: pl.DataFrame) -> pl.DataFrame:
         )
         .filter(pl.col("value") > 0)
     )
+
     logging.info(f"IRI-103: computed {len(df)} values")
+
     return df
 
 
@@ -586,7 +611,9 @@ def iri_13(activites: pl.DataFrame) -> pl.DataFrame:
             pl.col("VAAGR6").alias("value"),
         ]
     )
+
     logging.info(f"IRI-13: computed {len(df)} values")
+
     return df
 
 
@@ -624,7 +651,9 @@ def iri_131(activites: pl.DataFrame) -> pl.DataFrame:
         )
         .filter(pl.col("value") > 0)
     )
+
     logging.info(f"IRI-131: computed {len(df)} values")
+
     return df
 
 
@@ -662,7 +691,9 @@ def iri_132(activites: pl.DataFrame) -> pl.DataFrame:
         )
         .filter(pl.col("value") > 0)
     )
+
     logging.info(f"IRI-132: computed {len(df)} values")
+
     return df
 
 
@@ -692,7 +723,9 @@ def iri_133(activites: pl.DataFrame) -> pl.DataFrame:
             pl.col("VAAGR6").alias("value"),
         ]
     )
+
     logging.info(f"IRI-133: computed {len(df)} values")
+
     return df
 
 
@@ -719,7 +752,9 @@ def iri_14(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
             pl.col("IRI-14").alias("value"),
         ]
     )
+
     logging.info(f"IRI-14: computed {len(df)} values")
+
     return df
 
 
@@ -744,7 +779,9 @@ def iri_141(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
             pl.col("IRI-14-1").alias("value"),
         ]
     )
+
     logging.info(f"IRI-141: computed {len(df)} values")
+
     return df
 
 
@@ -770,7 +807,9 @@ def iri_15(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
             pl.col("IRI-15").alias("value") == "Oui",
         ]
     )
+
     logging.info(f"IRI-15: computed {len(df)} values")
+
     return df
 
 
@@ -952,7 +991,9 @@ def iri_16(
 
     dataframes = [df for df in [df1, df2, df3, df4] if df is not None]
     df = pl.concat(dataframes)
+
     logging.info(f"IRI-16: computed {len(df)} values")
+
     return df
 
 
@@ -1013,7 +1054,9 @@ def iri_17(
 
     df = pl.concat([df1, df2])
     df = df.filter(pl.col("numerator") <= pl.col("denominator"))
+
     logging.info(f"IRI-17: computed {len(df)} values")
+
     return df
 
 
@@ -1038,7 +1081,9 @@ def iri_18(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
             pl.col("IRI-18").alias("value"),
         ]
     )
+
     logging.info(f"IRI-18: computed {len(df)} values")
+
     return df
 
 
@@ -1063,7 +1108,9 @@ def iri_181(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
             pl.col("IRI-18-1").alias("value"),
         ]
     )
+
     logging.info(f"IRI-181: computed {len(df)} values")
+
     return df
 
 
@@ -1091,7 +1138,9 @@ def reg_int_1(indicateurs_regionaux: pl.DataFrame) -> pl.DataFrame:
             pl.col("Reg-Int-1").alias("value"),
         ]
     )
+
     logging.info(f"Reg Int 1: computed {len(df)} values")
+
     return df
 
 
@@ -1120,7 +1169,9 @@ def reg_int_2(indicateurs_regionaux: pl.DataFrame) -> pl.DataFrame:
             pl.col("Reg-Int-2").alias("value"),
         ]
     )
+
     logging.info(f"Reg Int 2: computed {len(df)} values")
+
     return df
 
 
@@ -1149,7 +1200,9 @@ def reg_int_4(indicateurs_regionaux: pl.DataFrame) -> pl.DataFrame:
             pl.col("Reg-Int-4").alias("value"),
         ]
     )
+
     logging.info(f"Reg Int 4: computed {len(df)} values")
+
     return df
 
 
@@ -1178,7 +1231,9 @@ def reg_int_5(indicateurs_regionaux: pl.DataFrame) -> pl.DataFrame:
             pl.col("Reg-Int-5").alias("value"),
         ]
     )
+
     logging.info(f"Reg Int 5: computed {len(df)} values")
+
     return df
 
 
@@ -1207,7 +1262,9 @@ def reg_int_6(indicateurs_regionaux: pl.DataFrame) -> pl.DataFrame:
             pl.col("Reg-Int-6").alias("value"),
         ]
     )
+
     logging.info(f"Reg Int 6: computed {len(df)} values")
+
     return df
 
 
@@ -1249,6 +1306,13 @@ def load_praps1_data(fname: str) -> pl.DataFrame:
     return df
 
 
+def load_cdr_data(cdr_dir: str, fname: str) -> pl.DataFrame:
+    """Load processed CDR data in parquet format."""
+    df_cdr = pl.read_parquet(Path(cdr_dir, "processed", fname))
+    df_cdr = df_cdr.with_columns(pl.lit("cdr").alias("data_source"))
+    return df_cdr
+
+
 def combine_indicators(
     indicateurs_regionaux: pl.DataFrame,
     indicateurs_pays: pl.DataFrame,
@@ -1285,7 +1349,12 @@ def combine_indicators(
         iri_14(indicateurs_pays),
         iri_141(indicateurs_pays),
         iri_15(indicateurs_pays),
-        iri_16(parcs_de_vaccination, gestion_durable, points_d_eau, marches_a_betail),
+        iri_16(
+            parcs_de_vaccination,
+            gestion_durable,
+            points_d_eau,
+            marches_a_betail,
+        ),
         iri_17(sous_projets, activites),
         iri_18(indicateurs_pays),
         iri_181(indicateurs_pays),
@@ -1652,3 +1721,25 @@ def retro_compatibility(df: pl.DataFrame) -> pl.DataFrame:
             pl.col("cumulated_value_praps2").alias("cumulative_value_praps2"),
         ]
     )
+
+
+def integrate_cdr_data(df_kobo: pl.DataFrame, cdr_dir: str) -> pl.DataFrame:
+    """Integrate PRAPS2 indicators computed from Kobo data with indicators computed from CDR data."""
+    df_cdr_2025 = load_cdr_data(cdr_dir, "cdr_results_2025.parquet")
+    df_kobo = df_kobo.with_columns(pl.lit("kobo").alias("data_source"))
+    combined_df = pl.concat([df_kobo, df_cdr_2025], how="diagonal_relaxed")
+
+    # create a 'overlaps_with_cdr' column to identify rows where data_source is kobo and that have the same indicator_code, year, and country in both datasets
+    combined_df = combined_df.with_columns(
+        pl.when(
+            (pl.col("data_source") == "kobo")
+            & (pl.col("indicator_code").is_in(df_cdr_2025["indicator_code"]))
+            & (pl.col("year").is_in(df_cdr_2025["year"]))
+            & (pl.col("country").is_in(df_cdr_2025["country"]))
+        )
+        .then(True)
+        .otherwise(False)
+        .alias("overlaps_with_cdr")
+    )
+
+    return combined_df

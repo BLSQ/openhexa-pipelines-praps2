@@ -45,7 +45,7 @@ def compute_indicators(survey_dir: str, cdr_dir: str, push_to_db: bool):
 
 
 @compute_indicators.task
-def compute(survey_dir: Path, cdr_dir: Path):
+def compute(survey_dir: Path, cdr_dir: str):
     praps1 = indicators.load_praps1_data(Path(cdr_dir, "cdr_praps1_initial_values.csv"))
     df = indicators.combine_indicators(
         indicateurs_regionaux=pl.read_parquet(
@@ -76,7 +76,8 @@ def compute(survey_dir: Path, cdr_dir: Path):
     )
 
     df = indicators.join_metadata(
-        df, indicators_metadata=pl.read_csv(Path(cdr_dir, "indicators_metadata.csv"))
+        df,
+        indicators_metadata=pl.read_csv(Path(cdr_dir, "indicators_metadata.csv")),
     )
     current_run.log_info(f"Joined metadata ({len(df)} values)")
 
@@ -91,6 +92,12 @@ def compute(survey_dir: Path, cdr_dir: Path):
 
     df = indicators.retro_compatibility(df)
     current_run.log_info(f"Modified columns for retro-compatibility ({len(df)} values)")
+
+    df = indicators.integrate_cdr_data(
+        df,
+        Path(cdr_dir),
+    )
+    current_run.log_info(f"Integrated CDR data ({len(df)} values)")
 
     fp_parquet = Path(cdr_dir, "indicateurs.parquet")
     fp_xlsx = Path(cdr_dir, "indicateurs.xlsx")

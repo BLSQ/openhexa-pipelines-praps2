@@ -4,6 +4,7 @@ from openhexa.sdk import current_run, parameter, pipeline, workspace
 from pathlib import Path
 import utils
 import config
+from openhexa.sdk.utils import Environment, get_environment
 
 
 @pipeline("process-cdr", name="Traiter les données des CDR")
@@ -60,6 +61,7 @@ def process_cdr(
     # save outputs
     save_output(cdr_2025_results_df, cdr_processed_dir, "cdr_results_2025")
     save_output(cdr_targets_df, cdr_processed_dir, "CDR_Targets_v2")
+    push_to_db(cdr_targets_df, "CDR_Targets_v2")
 
 
 def import_file(cdr_dir: str, file_name: str) -> pl.DataFrame:
@@ -648,6 +650,18 @@ def save_output(df: pl.DataFrame, dir_name: str, file_name: str):
 
     df.write_parquet(output_file)
     current_run.add_file_output(output_file.as_posix())
+
+
+def push_to_db(df: pl.DataFrame, db_name: str) -> bool:
+    df.write_database(
+        db_name, connection=workspace.database_url, if_table_exists="replace"
+    )
+    current_run.log_info(f"Writing to database table `{db_name}` ({len(df)} rows)")
+
+    if get_environment() == Environment.CLOUD_PIPELINE:
+        current_run.add_database_output(db_name)
+
+    return True
 
 
 if __name__ == "__main__":

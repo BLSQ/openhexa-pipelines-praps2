@@ -6,7 +6,7 @@ import utils
 import config
 
 
-@pipeline("process-cdr", name="process-cdr")
+@pipeline("process-cdr", name="Traiter les données des CDR")
 @parameter(
     "cdr_raw_dir",
     name="Dossier des CDR",

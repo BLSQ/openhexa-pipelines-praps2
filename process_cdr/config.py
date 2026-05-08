@@ -93,3 +93,11 @@ unit_mapping = {
     "pourcentage": "Pourcentage",
     "tonnes (valeur cumulée)": "Tonnes (cumulé)",
 }
+
+indicator_type_mapping = {
+    "percent": "Pourcentage",
+    "count": "Nombre",
+    "surface": "Nombre",
+    "weight": "Nombre",
+    "boolean": "Oui/Non",
+}

@@ -75,9 +75,18 @@ def compute(survey_dir: Path, cdr_dir: str):
         f"Computed {len(df['indicator_code'].unique()) - 1} indicators ({len(df)} values)"
     )
 
+    indicators_metadata = pl.read_csv(Path(cdr_dir, "indicators_metadata_v2.csv"))
+    indicators_metadata = indicators_metadata.select(
+        pl.col("code").alias("code_old"),
+        pl.col("code_v2").alias("code_new"),
+        pl.col("designation_v2").alias("designation"),
+        pl.col("unite_v2").alias("unit"),
+        pl.col("note"),
+    )
+
     df = indicators.join_metadata(
         df,
-        indicators_metadata=pl.read_csv(Path(cdr_dir, "indicators_metadata.csv")),
+        indicators_metadata=indicators_metadata,
     )
     current_run.log_info(f"Joined metadata ({len(df)} values)")
 

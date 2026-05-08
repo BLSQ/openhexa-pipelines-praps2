@@ -1377,12 +1377,16 @@ def combine_indicators(
 def join_metadata(df: pl.DataFrame, indicators_metadata: pl.DataFrame) -> pl.DataFrame:
     """Join indicators metadata (unit, full name, etc) to dataframe."""
     df = df.join(
-        other=indicators_metadata, how="left", left_on="indicator_code", right_on="code"
+        other=indicators_metadata,
+        how="left",
+        left_on="indicator_code",
+        right_on="code_old",
     ).select(
         [
-            pl.col("indicator_code"),
+            pl.col("code_new").alias("indicator_code"),
             pl.col("designation").alias("indicator_name"),
-            pl.col("unite").alias("unit"),
+            pl.col("unit"),
+            pl.col("note"),
             pl.col("date").str.slice(0, 4).cast(int),
             pl.col("project"),
             pl.col("level"),
@@ -1396,6 +1400,16 @@ def join_metadata(df: pl.DataFrame, indicators_metadata: pl.DataFrame) -> pl.Dat
             pl.col("denominator"),
             pl.col("value"),
         ]
+    )
+
+    # flag indicators that changed based on note
+    df = df.with_columns(
+        pl.when(
+            pl.col("note").str.contains(r"(?i)indicateur supprimé|indicateur changé")
+        )
+        .then(True)
+        .otherwise(False)
+        .alias("indicator_changed")
     )
 
     return df
@@ -1455,6 +1469,7 @@ def spatial_aggregation(df: pl.DataFrame) -> pl.DataFrame:
         "level",
         "country",
         "region",
+        "indicator_changed",
     ]
     df_lvl6 = df.filter(pl.col("level") == 6)
     counts = aggregate_counts(df=df_lvl6, agg_columns=AGG_COLUMNS)
@@ -1511,6 +1526,7 @@ def spatial_aggregation(df: pl.DataFrame) -> pl.DataFrame:
                 "numerator",
                 "denominator",
                 "value",
+                "indicator_changed",
             ]
         )
         .sort(["indicator_code", "date", "country", "region"])
@@ -1530,6 +1546,7 @@ def fill_missing_values(df: pl.DataFrame) -> pl.DataFrame:
         df_ = df.filter(pl.col("indicator_code") == code)
         name = df_["indicator_name"][0]
         unit = df_["unit"][0]
+        indicator_changed = df_["indicator_changed"][0]
 
         for year in YEARS:
             if year <= 2021:
@@ -1549,6 +1566,7 @@ def fill_missing_values(df: pl.DataFrame) -> pl.DataFrame:
                 "numerator": None,
                 "denominator": None,
                 "value": None,
+                "indicator_changed": indicator_changed,
             }
 
             row = baserow.copy()
@@ -1719,6 +1737,7 @@ def retro_compatibility(df: pl.DataFrame) -> pl.DataFrame:
             pl.col("cumulated_denominator").alias("cumulative_denominator"),
             pl.col("cumulated_value").alias("cumulative_value"),
             pl.col("cumulated_value_praps2").alias("cumulative_value_praps2"),
+            pl.col("indicator_changed"),
         ]
     )
 
@@ -1729,7 +1748,7 @@ def integrate_cdr_data(df_kobo: pl.DataFrame, cdr_dir: str) -> pl.DataFrame:
     df_kobo = df_kobo.with_columns(pl.lit("kobo").alias("data_source"))
     combined_df = pl.concat([df_kobo, df_cdr_2025], how="diagonal_relaxed")
 
-    # create a 'overlaps_with_cdr' column to identify rows where data_source is kobo and that have the same indicator_code, year, and country in both datasets
+    # flag kobo entries that overlap with cdr
     combined_df = combined_df.with_columns(
         pl.when(
             (pl.col("data_source") == "kobo")

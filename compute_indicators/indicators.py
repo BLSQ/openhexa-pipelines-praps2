@@ -1745,6 +1745,7 @@ def retro_compatibility(df: pl.DataFrame) -> pl.DataFrame:
 def integrate_cdr_data(df_kobo: pl.DataFrame, cdr_dir: str) -> pl.DataFrame:
     """Integrate PRAPS2 indicators computed from Kobo data with indicators computed from CDR data."""
     df_cdr_2025 = load_cdr_data(cdr_dir, "cdr_results_2025.parquet")
+    df_cdr_2025 = df_cdr_2025.drop(pl.col("date")).rename({"year": "date"})
     df_kobo = df_kobo.with_columns(pl.lit("kobo").alias("data_source"))
     combined_df = pl.concat([df_kobo, df_cdr_2025], how="diagonal_relaxed")
 
@@ -1753,12 +1754,17 @@ def integrate_cdr_data(df_kobo: pl.DataFrame, cdr_dir: str) -> pl.DataFrame:
         pl.when(
             (pl.col("data_source") == "kobo")
             & (pl.col("indicator_code").is_in(df_cdr_2025["indicator_code"]))
-            & (pl.col("year").is_in(df_cdr_2025["year"]))
+            & (pl.col("date").is_in(df_cdr_2025["date"]))
             & (pl.col("country").is_in(df_cdr_2025["country"]))
         )
         .then(True)
         .otherwise(False)
         .alias("overlaps_with_cdr")
+    )
+
+    # drop kobo entries that overlap with cdr
+    combined_df = combined_df.filter(~pl.col("overlaps_with_cdr")).drop(
+        "overlaps_with_cdr"
     )
 
     return combined_df

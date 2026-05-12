@@ -96,16 +96,16 @@ def compute(survey_dir: Path, cdr_dir: str):
     df = indicators.fill_missing_values(df)
     current_run.log_info(f"Filled missing values ({len(df)} values)")
 
+    df = indicators.integrate_cdr_data(
+        df,
+        Path(cdr_dir),
+    )
     df = indicators.cumulate_indicators(df)
     current_run.log_info(f"Cumulated indicators ({len(df)} values)")
 
     df = indicators.retro_compatibility(df)
     current_run.log_info(f"Modified columns for retro-compatibility ({len(df)} values)")
 
-    df = indicators.integrate_cdr_data(
-        df,
-        Path(cdr_dir),
-    )
     current_run.log_info(f"Integrated CDR data ({len(df)} values)")
 
     fp_parquet = Path(cdr_dir, "indicateurs.parquet")

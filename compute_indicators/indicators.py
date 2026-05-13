@@ -1603,6 +1603,34 @@ def fill_missing_values(df: pl.DataFrame) -> pl.DataFrame:
     return df
 
 
+def integrate_cdr_data(df_kobo: pl.DataFrame, cdr_dir: str) -> pl.DataFrame:
+    """Integrate PRAPS2 indicators computed from Kobo data with indicators computed from CDR data."""
+    df_cdr_2025 = load_cdr_data(cdr_dir, "cdr_results_2025.parquet")
+    df_cdr_2025 = df_cdr_2025.drop(pl.col("date")).rename({"year": "date"})
+    df_kobo = df_kobo.with_columns(pl.lit("kobo").alias("data_source"))
+    combined_df = pl.concat([df_kobo, df_cdr_2025], how="diagonal_relaxed")
+
+    # flag kobo entries that overlap with cdr
+    combined_df = combined_df.with_columns(
+        pl.when(
+            (pl.col("data_source") == "kobo")
+            & (pl.col("indicator_code").is_in(df_cdr_2025["indicator_code"]))
+            & (pl.col("date").is_in(df_cdr_2025["date"]))
+            & (pl.col("country").is_in(df_cdr_2025["country"]))
+        )
+        .then(True)
+        .otherwise(False)
+        .alias("overlaps_with_cdr")
+    )
+
+    # drop kobo entries that overlap with cdr
+    combined_df = combined_df.filter(~pl.col("overlaps_with_cdr")).drop(
+        "overlaps_with_cdr"
+    )
+
+    return combined_df
+
+
 def cumulate_counts(df: pl.DataFrame) -> pl.DataFrame:
     """Add a `cumulated_value_praps2` column with cumulative sum of counts."""
     counts = pl.concat(
@@ -1630,12 +1658,26 @@ def cumulate_counts(df: pl.DataFrame) -> pl.DataFrame:
         ]
     )
 
-    return counts.with_columns(
+    counts = counts.with_columns(
         pl.when(pl.col("project") == "PRAPS1")
         .then(None)
         .otherwise(pl.col("cumulated_value_praps2"))
         .alias("cumulated_value_praps2")
     )
+
+    # replace cdr cumul values by their original value (as they are already cumulated)
+    counts = counts.with_columns(
+        pl.when(pl.col("data_source") == "cdr")
+        .then(pl.col("value"))
+        .otherwise(pl.col("cumulated_value_praps2"))
+        .alias("cumulated_value_praps2"),
+        pl.when(pl.col("data_source") == "cdr")
+        .then(pl.col("value"))
+        .otherwise(pl.col("cumulated_value"))
+        .alias("cumulated_value"),
+    )
+
+    return counts
 
 
 def cumulate_ratios(df: pl.DataFrame) -> pl.DataFrame:
@@ -1680,7 +1722,7 @@ def cumulate_ratios(df: pl.DataFrame) -> pl.DataFrame:
         how="diagonal_relaxed",
     )
 
-    return ratios.with_columns(
+    ratios = ratios.with_columns(
         [
             (pl.col("cumulated_numerator") / pl.col("cumulated_denominator")).alias(
                 "cumulated_value"
@@ -1691,6 +1733,8 @@ def cumulate_ratios(df: pl.DataFrame) -> pl.DataFrame:
         ]
     )
 
+    return ratios
+
 
 def cumulate_bools(df: pl.DataFrame) -> pl.DataFrame:
     """Cumulate boolean indicator values.
@@ -1698,12 +1742,14 @@ def cumulate_bools(df: pl.DataFrame) -> pl.DataFrame:
     As of now, the function just add two columns `cumulated_value` and `cumulated_value_praps2`
     which uses the original value without any calculation.
     """
-    return df.filter(pl.col("unit") == "boolean").with_columns(
+    df = df.filter(pl.col("unit") == "boolean").with_columns(
         [
             pl.col("value").alias("cumulated_value"),
             pl.col("value").alias("cumulated_value_praps2"),
         ]
     )
+
+    return df
 
 
 def cumulate_indicators(df: pl.DataFrame) -> pl.DataFrame:
@@ -1740,31 +1786,3 @@ def retro_compatibility(df: pl.DataFrame) -> pl.DataFrame:
             pl.col("indicator_changed"),
         ]
     )
-
-
-def integrate_cdr_data(df_kobo: pl.DataFrame, cdr_dir: str) -> pl.DataFrame:
-    """Integrate PRAPS2 indicators computed from Kobo data with indicators computed from CDR data."""
-    df_cdr_2025 = load_cdr_data(cdr_dir, "cdr_results_2025.parquet")
-    df_cdr_2025 = df_cdr_2025.drop(pl.col("date")).rename({"year": "date"})
-    df_kobo = df_kobo.with_columns(pl.lit("kobo").alias("data_source"))
-    combined_df = pl.concat([df_kobo, df_cdr_2025], how="diagonal_relaxed")
-
-    # flag kobo entries that overlap with cdr
-    combined_df = combined_df.with_columns(
-        pl.when(
-            (pl.col("data_source") == "kobo")
-            & (pl.col("indicator_code").is_in(df_cdr_2025["indicator_code"]))
-            & (pl.col("date").is_in(df_cdr_2025["date"]))
-            & (pl.col("country").is_in(df_cdr_2025["country"]))
-        )
-        .then(True)
-        .otherwise(False)
-        .alias("overlaps_with_cdr")
-    )
-
-    # drop kobo entries that overlap with cdr
-    combined_df = combined_df.filter(~pl.col("overlaps_with_cdr")).drop(
-        "overlaps_with_cdr"
-    )
-
-    return combined_df

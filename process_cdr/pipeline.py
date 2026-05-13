@@ -192,13 +192,17 @@ def process_2025_CDR(cdr_2025_raw: pl.DataFrame) -> pl.DataFrame:
     df_transformed = df_transformed.with_columns(
         pl.when(pl.col("country").is_not_null())
         .then(pl.col("country"))
-        .when((pl.col("indicator_code_original") == "IRI-6") & (pl.col("value") == 185))
-        .then(pl.lit("MR"))
         .when(
-            (pl.col("indicator_code_original") == "IRI-7") & (pl.col("value") == 5_576)
+            (pl.col("indicator_code_original") == "6")
+            & ((pl.col("value") == 185) | (pl.col("value") == 107))
         )
         .then(pl.lit("MR"))
-        .when((pl.col("indicator_code_original").is_in(["FA-2", "FA-21", "FA-22"])))
+        .when(
+            (pl.col("indicator_code_original") == "7")
+            & ((pl.col("value") == 5_576) | (pl.col("value") == 3_509))
+        )
+        .then(pl.lit("MR"))
+        .when((pl.col("indicator_code_original").is_in(["FA 2"])))
         .then(pl.lit("BF"))
         .when(pl.col("indicator_code_original").is_in(config.regional_indicators))
         .then(pl.lit("REGIONAL"))
@@ -208,6 +212,21 @@ def process_2025_CDR(cdr_2025_raw: pl.DataFrame) -> pl.DataFrame:
 
     # drop total rows
     df_transformed = df_transformed.filter(~pl.col("country").str.contains("Total"))
+
+    # for countries with a 'restruct' equivalent, only keep the entry that contain the suffix 'restruc' (these are the ones that have been restructured and should be kept over the original ones)
+    group_cols = ["indicator_name_original", "indicator_code_original", "value_type"]
+
+    df_transformed = (
+        df_transformed.with_columns(
+            clean_country=pl.col("country").str.replace(" restruc", "")
+        )
+        .filter(
+            (pl.len().over([*group_cols, "clean_country"]) == 1)
+            | (pl.col("country").str.contains("restruc"))
+        )
+        .with_columns(country=pl.col("clean_country"))
+        .drop("clean_country")
+    )
 
     current_run.log_info(f"Transformed {df_transformed.height} rows.")
 

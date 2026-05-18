@@ -255,21 +255,6 @@ def process_2025_CDR(cdr_2025_raw: pl.DataFrame) -> pl.DataFrame:
     # drop total rows
     df_transformed = df_transformed.filter(~pl.col("country").str.contains("Total"))
 
-    # # for countries with a 'restruct' equivalent, only keep the entry that contain the suffix 'restruc' (these are the ones that have been restructured and should be kept over the original ones)
-    # group_cols = ["indicator_name_original", "indicator_code_original", "value_type"]
-
-    # df_transformed = (
-    #     df_transformed.with_columns(
-    #         clean_country=pl.col("country").str.replace(" restruc", "")
-    #     )
-    #     .filter(
-    #         (pl.len().over([*group_cols, "clean_country"]) == 1)
-    #         | (pl.col("country").str.contains("restruc"))
-    #     )
-    #     .with_columns(country=pl.col("clean_country"))
-    #     .drop("clean_country")
-    # )
-
     current_run.log_info(f"Transformed {df_transformed.height} rows.")
 
     return df_transformed

@@ -22,6 +22,7 @@ country_name_mapping = {
     "MR": "Mauritanie",
     "MR Restruct*": "Mauritanie (restructuré)",
     "NE": "Niger",
+    "NE Restruct*": "Niger (restructuré)",
     "ML": "Mali",
     "SN": "Sénégal",
     "TD": "Tchad",

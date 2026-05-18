@@ -108,6 +108,7 @@ def process_2025_CDR(cdr_2025_raw: pl.DataFrame) -> pl.DataFrame:
             pl.col("column_2").alias("indicator_name_original"),
             pl.col("column_4").alias("unit_original"),
             pl.col("column_5").alias("country"),
+            pl.col("column_6").alias("target_value_initial"),
             pl.col("column_7").alias("target_value"),
             pl.col("column_8").alias("result_value"),
             pl.col("original_order"),
@@ -140,10 +141,15 @@ def process_2025_CDR(cdr_2025_raw: pl.DataFrame) -> pl.DataFrame:
     # assign year 2025
     df_transformed = df_full.with_columns(pl.lit(2025).alias("year"))
 
-    # Filter out rows where Valeur résultats is missing or contains the term "Résultats"
+    # Filter out rows where Valeur résultats is missing or contains the term "Résultats" (exception: rows with restructured funding")
     df_transformed = df_transformed.filter(
-        pl.col("result_value").is_not_null()
-        & ~pl.col("result_value").str.contains("Résultats")
+        (
+            pl.col("result_value").is_not_null()
+            | pl.col("target_value_initial").is_in(
+                ["Total avec Fin add", "Total P2 restruc"]
+            )
+        )
+        & ~pl.col("result_value").str.contains("Résultats").fill_null(False)
     )
 
     # Replace "Valeur_xxx" values of "oui" and "non" with 1 and 0 respectively
@@ -161,6 +167,64 @@ def process_2025_CDR(cdr_2025_raw: pl.DataFrame) -> pl.DataFrame:
     df_transformed = df_transformed.with_columns(
         pl.col("target_value").cast(pl.Float64, strict=False),
         pl.col("result_value").cast(pl.Float64, strict=False),
+    )
+
+    # fill in missing country values
+    df_transformed = df_transformed.with_columns(
+        pl.when(pl.col("country").is_not_null())
+        .then(pl.col("country"))
+        # MR
+        .when(
+            (pl.col("indicator_code_original") == "6")
+            & (pl.col("target_value_initial") == "Total PRAPS-2")
+            & (pl.col("target_value") == 185)
+            & (pl.col("result_value") == 107)
+        )
+        .then(pl.lit("MR"))
+        .when(
+            (pl.col("indicator_code_original") == "6")
+            & (pl.col("target_value_initial") == "Total avec Fin add")
+            & (pl.col("target_value") == 303)
+            & (pl.col("result_value").is_null())
+        )
+        .then(pl.lit("MR Restruct*"))
+        .when(
+            (pl.col("indicator_code_original") == "7")
+            & (pl.col("target_value_initial") == "Total P2")
+            & (pl.col("target_value") == 5_576)
+            & (pl.col("result_value") == 3_509)
+        )
+        .then(pl.lit("MR"))
+        .when(
+            (pl.col("indicator_code_original") == "7")
+            & (pl.col("target_value_initial") == "Total P2 restruc")
+            & (pl.col("target_value") == 10_900)
+            & (pl.col("result_value").is_null())
+        )
+        .then(pl.lit("MR Restruct*"))
+        # NE
+        .when(
+            (pl.col("indicator_code_original") == "6")
+            & (pl.col("target_value_initial") == "Total PRAPS-2")
+            & (pl.col("target_value") == 175)
+            & (pl.col("result_value") == 89)
+        )
+        .then(pl.lit("NE"))
+        .when(
+            (pl.col("indicator_code_original") == "6")
+            & (pl.col("target_value_initial") == "Total avec Fin add")
+            & (pl.col("target_value") == 227)
+            & (pl.col("result_value").is_null())
+        )
+        .then(pl.lit("NE Restruct*"))
+        # BF
+        .when((pl.col("indicator_code_original").is_in(["FA 2"])))
+        .then(pl.lit("BF"))
+        # REGIONAL
+        .when(pl.col("indicator_code_original").is_in(config.regional_indicators))
+        .then(pl.lit("REGIONAL"))
+        .otherwise(pl.col("country"))
+        .alias("country")
     )
 
     # convert from wide to long format
@@ -188,45 +252,8 @@ def process_2025_CDR(cdr_2025_raw: pl.DataFrame) -> pl.DataFrame:
         .alias("value_type")
     )
 
-    # fill in missing country values
-    df_transformed = df_transformed.with_columns(
-        pl.when(pl.col("country").is_not_null())
-        .then(pl.col("country"))
-        .when(
-            (pl.col("indicator_code_original") == "6")
-            & ((pl.col("value") == 185) | (pl.col("value") == 107))
-        )
-        .then(pl.lit("MR"))
-        .when(
-            (pl.col("indicator_code_original") == "7")
-            & ((pl.col("value") == 5_576) | (pl.col("value") == 3_509))
-        )
-        .then(pl.lit("MR"))
-        .when((pl.col("indicator_code_original").is_in(["FA 2"])))
-        .then(pl.lit("BF"))
-        .when(pl.col("indicator_code_original").is_in(config.regional_indicators))
-        .then(pl.lit("REGIONAL"))
-        .otherwise(pl.lit("NE"))
-        .alias("country")
-    )
-
     # drop total rows
     df_transformed = df_transformed.filter(~pl.col("country").str.contains("Total"))
-
-    # for countries with a 'restruct' equivalent, only keep the entry that contain the suffix 'restruc' (these are the ones that have been restructured and should be kept over the original ones)
-    group_cols = ["indicator_name_original", "indicator_code_original", "value_type"]
-
-    df_transformed = (
-        df_transformed.with_columns(
-            clean_country=pl.col("country").str.replace(" restruc", "")
-        )
-        .filter(
-            (pl.len().over([*group_cols, "clean_country"]) == 1)
-            | (pl.col("country").str.contains("restruc"))
-        )
-        .with_columns(country=pl.col("clean_country"))
-        .drop("clean_country")
-    )
 
     current_run.log_info(f"Transformed {df_transformed.height} rows.")
 

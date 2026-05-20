@@ -1,4 +1,4 @@
-name: Push "process cdr" pipeline
+name: Push "process-cdr" pipeline
 
 on:
   workflow_dispatch:

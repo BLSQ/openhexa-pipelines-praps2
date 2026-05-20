@@ -7,7 +7,7 @@ import config
 from openhexa.sdk.utils import Environment, get_environment
 
 
-@pipeline(name="process-cdr")
+@pipeline("process-cdr", name="process-cdr")
 @parameter(
     "cdr_raw_dir",
     name="Dossier des CDR",

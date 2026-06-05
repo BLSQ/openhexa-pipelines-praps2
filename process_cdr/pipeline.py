@@ -9,18 +9,11 @@ from openhexa.sdk.utils import Environment, get_environment
 
 @pipeline(name="process-cdr")
 @parameter(
-    "cdr_raw_dir",
+    "cdr_dir",
     name="Dossier des CDR",
     help="Dossier où sont sauvegardés les CDR originaux",
     type=str,
-    default="data/cdr/raw",
-)
-@parameter(
-    "cdr_processed_dir",
-    name="Dossier de sortie",
-    help="Dossier de sortie des CDR transformés",
-    type=str,
-    default="data/cdr/processed",
+    default="data",
 )
 @parameter(
     "indicators_metadata_file",
@@ -30,38 +23,42 @@ from openhexa.sdk.utils import Environment, get_environment
     default="data/cdr/indicators_metadata_v2.csv",
 )
 def process_cdr(
-    cdr_raw_dir: str,
-    cdr_processed_dir: str,
+    cdr_dir: str,
     indicators_metadata_file: str,
 ):
     """
     Pipeline to process CDR Excel files and transform them into a long format Polars dataframe.
     """
-    # process 2025 CDR
+    # import data
     indicators_metadata = import_indicators_metadata(indicators_metadata_file)
     cdr_2025_raw = import_file(
-        cdr_raw_dir, "CDR_PRAPS_2_CONSOLIDE_PAYS_CILSS_31_12_25_VF.xlsx"
+        f"{cdr_dir}/cdr/raw", "CDR_PRAPS_2_CONSOLIDE_PAYS_CILSS_31_12_25_VF.xlsx"
     )
+    cdr_targets_old = import_file(f"{cdr_dir}/targets", "CDR_Targets.csv")
+
+    # process 2025 CDR
     cdr_2025_df = process_2025_CDR(cdr_2025_raw)
     cdr_2025_df = assign_indicator_codes(cdr_2025_df, indicators_metadata)
 
     # process 2026-2027 CDR
     cdr_2026_2027_raw = import_file(
-        cdr_raw_dir, "PRAPS-2 Projet de CDR révisé - décembre 2025 VF 191225.xlsx"
+        f"{cdr_dir}/cdr/raw",
+        "PRAPS-2 Projet de CDR révisé - décembre 2025 VF 191225.xlsx",
     )
     cdr_2026_2027_df = process_2026_2027_CDR(cdr_2026_2027_raw)
     cdr_2026_2027_df = assign_indicator_codes(cdr_2026_2027_df, indicators_metadata)
 
-    # create combined target df
-    cdr_targets_df = combine_target_values(cdr_2025_df, cdr_2026_2027_df)
-
     # create cdr results df
     cdr_2025_results_df = clean_results_values(cdr_2025_df)
 
+    # create combined target df
+    cdr_2026_2027_targets_df = clean_target_values(cdr_2026_2027_df)
+    combined_targets_df = combine_targets(cdr_targets_old, cdr_2026_2027_targets_df)
+
     # save outputs
-    save_output(cdr_2025_results_df, cdr_processed_dir, "cdr_results_2025")
-    save_output(cdr_targets_df, cdr_processed_dir, "CDR_Targets_v2")
-    push_to_db(cdr_targets_df, "CDR_Targets_v2")
+    save_output(cdr_2025_results_df, f"{cdr_dir}/cdr/processed", "cdr_results_2025")
+    save_output(combined_targets_df, f"{cdr_dir}/cdr/processed", "CDR_Targets_v2")
+    push_to_db(combined_targets_df, "CDR_Targets_v2")
 
 
 def import_file(cdr_dir: str, file_name: str) -> pl.DataFrame:
@@ -71,8 +68,10 @@ def import_file(cdr_dir: str, file_name: str) -> pl.DataFrame:
         raise FileNotFoundError(
             f"Directory {cdr_dir} does not exist or is not a directory."
         )
-
-    df_raw = pl.read_excel(Path(cdr_path, file_name), has_header=False)
+    if cdr_dir == "data/cdr/raw":
+        df_raw = pl.read_excel(Path(cdr_path, file_name), has_header=False)
+    elif cdr_dir == "data/targets":
+        df_raw = pl.read_csv(Path(cdr_path, file_name), has_header=True)
 
     return df_raw
 
@@ -108,8 +107,6 @@ def process_2025_CDR(cdr_2025_raw: pl.DataFrame) -> pl.DataFrame:
             pl.col("column_2").alias("indicator_name_original"),
             pl.col("column_4").alias("unit_original"),
             pl.col("column_5").alias("country"),
-            pl.col("column_6").alias("target_value_initial"),
-            pl.col("column_7").alias("target_value"),
             pl.col("column_8").alias("result_value"),
             pl.col("original_order"),
         ]
@@ -143,17 +140,12 @@ def process_2025_CDR(cdr_2025_raw: pl.DataFrame) -> pl.DataFrame:
 
     # Filter out rows where Valeur résultats is missing or contains the term "Résultats" (exception: rows with restructured funding")
     df_transformed = df_transformed.filter(
-        (
-            pl.col("result_value").is_not_null()
-            | pl.col("target_value_initial").is_in(
-                ["Total avec Fin add", "Total P2 restruc"]
-            )
-        )
+        pl.col("result_value").is_not_null()
         & ~pl.col("result_value").str.contains("Résultats").fill_null(False)
     )
 
     # Replace "Valeur_xxx" values of "oui" and "non" with 1 and 0 respectively
-    for col in ["target_value", "result_value"]:
+    for col in ["result_value"]:
         df_transformed = df_transformed.with_columns(
             pl.when(pl.col(col).str.to_lowercase() == "oui")
             .then(1)
@@ -165,7 +157,6 @@ def process_2025_CDR(cdr_2025_raw: pl.DataFrame) -> pl.DataFrame:
 
     # Convert Valeur to numeric
     df_transformed = df_transformed.with_columns(
-        pl.col("target_value").cast(pl.Float64, strict=False),
         pl.col("result_value").cast(pl.Float64, strict=False),
     )
 
@@ -175,61 +166,39 @@ def process_2025_CDR(cdr_2025_raw: pl.DataFrame) -> pl.DataFrame:
         .then(pl.col("country"))
         # MR
         .when(
-            (pl.col("indicator_code_original") == "6")
-            & (pl.col("target_value_initial") == "Total PRAPS-2")
-            & (pl.col("target_value") == 185)
-            & (pl.col("result_value") == 107)
+            (pl.col("indicator_code_original") == "6") & (pl.col("result_value") == 107)
         )
         .then(pl.lit("MR"))
         .when(
-            (pl.col("indicator_code_original") == "6")
-            & (pl.col("target_value_initial") == "Total avec Fin add")
-            & (pl.col("target_value") == 303)
-            & (pl.col("result_value").is_null())
-        )
-        .then(pl.lit("MR Restruct*"))
-        .when(
             (pl.col("indicator_code_original") == "7")
-            & (pl.col("target_value_initial") == "Total P2")
-            & (pl.col("target_value") == 5_576)
             & (pl.col("result_value") == 3_509)
         )
         .then(pl.lit("MR"))
-        .when(
-            (pl.col("indicator_code_original") == "7")
-            & (pl.col("target_value_initial") == "Total P2 restruc")
-            & (pl.col("target_value") == 10_900)
-            & (pl.col("result_value").is_null())
-        )
-        .then(pl.lit("MR Restruct*"))
         # NE
         .when(
-            (pl.col("indicator_code_original") == "6")
-            & (pl.col("target_value_initial") == "Total PRAPS-2")
-            & (pl.col("target_value") == 175)
-            & (pl.col("result_value") == 89)
+            (pl.col("indicator_code_original") == "6") & (pl.col("result_value") == 89)
         )
         .then(pl.lit("NE"))
         .when(
-            (pl.col("indicator_code_original") == "6")
-            & (pl.col("target_value_initial") == "Total avec Fin add")
-            & (pl.col("target_value") == 227)
-            & (pl.col("result_value").is_null())
+            (pl.col("indicator_code_original") == "7")
+            & (pl.col("result_value") == 7_699.4)
         )
-        .then(pl.lit("NE Restruct*"))
+        .then(pl.lit("NE"))
+        .when(
+            (pl.col("indicator_code_original") == "13") & (pl.col("country").is_null())
+        )
+        .then(pl.lit("NE"))
         # BF
         .when((pl.col("indicator_code_original").is_in(["FA 2"])))
         .then(pl.lit("BF"))
-        # REGIONAL
-        .when(pl.col("indicator_code_original").is_in(config.regional_indicators))
-        .then(pl.lit("REGIONAL"))
+        # Non-missing
         .otherwise(pl.col("country"))
         .alias("country")
     )
 
     # convert from wide to long format
     df_transformed = df_transformed.unpivot(
-        on=["target_value", "result_value"],
+        on=["result_value"],
         index=[
             "indicator_name_original",
             "unit_original",
@@ -282,9 +251,6 @@ def process_2026_2027_CDR(cdr_2026_2027_raw: pl.DataFrame) -> pl.DataFrame:
             pl.col("column_4").alias("unit_original"),
             pl.col("column_5").alias("country"),
             pl.col("column_6").alias("target_value_2021"),
-            pl.col("column_7").alias("target_value_2022"),
-            pl.col("column_8").alias("target_value_2023"),
-            pl.col("column_9").alias("target_value_2024"),
             pl.col("column_10").alias("target_value_2026"),
             pl.col("column_11").alias("target_value_2027"),
             pl.col("original_order"),
@@ -321,9 +287,6 @@ def process_2026_2027_CDR(cdr_2026_2027_raw: pl.DataFrame) -> pl.DataFrame:
     # Replace "Valeur_xxx" values of "oui" and "non" with 1 and 0 respectively
     target_cols = [
         "target_value_2021",
-        "target_value_2022",
-        "target_value_2023",
-        "target_value_2024",
         "target_value_2026",
         "target_value_2027",
     ]
@@ -374,82 +337,36 @@ def assign_indicator_codes(
     Assign indicator codes to the transformed dataframe by matching indicator names with the
     reference map, and applying manual mapping for unmatched indicators.
     """
-    # define relevant fields
-    code_col = "code"
-    new_code_col = "code_v2"
-    name_col = "designation"
-    new_name_col = "designation_v2"
-    unit_col = "unite_v2"
-    cdr_is_2025 = (
-        df_transformed.select(pl.col("year").unique()).to_series().item(0) == 2025
+    # Assign indicator codes based on indicator names using the mapping dictionary from config
+    df_transformed = df_transformed.with_columns(
+        pl.col("indicator_name_original")
+        .str.strip_chars()
+        .alias("indicator_name_original")
     )
-
-    # restrict the df_transformed to Indicateur name and code and the original order
-    df_transformed_restricted = df_transformed.select(
-        ["indicator_name_original", "indicator_code_original", "original_order"]
-    ).unique()
-
-    if not cdr_is_2025:
-        name_col = new_name_col
-        code_col = new_code_col
-
-    # first normalize the indicator names in both dataframes to allow matching
-    df_transformed_restricted = df_transformed_restricted.with_columns(
-        utils.normalize_indicator_column("indicator_name_original").alias(
-            "indicator_name_clean"
+    df_transformed = df_transformed.with_columns(
+        pl.col("indicator_name_original")
+        .map_elements(
+            lambda x: config.indicator_name_code_mapping.get(x, None),
+            return_dtype=pl.String,
         )
+        .alias("indicator_code_formatted")
     )
-
-    indicators_metadata = indicators_metadata.with_columns(
-        utils.normalize_indicator_column(name_col).alias("indicator_name_clean")
-    )
-
-    # select relevant cols
-    indicators_metadata = indicators_metadata.select(
-        [
-            pl.col("indicator_name_clean"),
-            pl.col(code_col).alias("indicator_code_ref"),
-            pl.col(new_code_col).alias("indicator_code_ref_new"),
-            pl.col(name_col).alias("indicator_name_ref"),
-            pl.col(new_name_col).alias("indicator_name_ref_new"),
-            pl.col(unit_col).alias("unit_ref"),
-            pl.col("note"),
-        ]
-    )
-
-    # drop sub-indicators (those starting with the term "Dont ") (these will be calculated later on)
-    indicators_metadata_reduced = indicators_metadata.filter(
-        ~pl.col("indicator_name_clean").str.starts_with("dont ")
-    )
-
-    # join with reference map
-    df_transformed_restricted = df_transformed_restricted.join(
-        indicators_metadata_reduced,
-        on=["indicator_name_clean"],
-        how="left",
-    )
-
-    # perform manual matching on remaining unmatched indicators using the mapping defined in config.py
-    for indicator_name, code in config.missing_indicator_code_mapping.items():
-        df_transformed_restricted = df_transformed_restricted.with_columns(
-            pl.when(pl.col("indicator_name_original") == indicator_name)
-            .then(pl.lit(code))
-            .otherwise(pl.col("indicator_code_ref"))
-            .alias("indicator_code_ref")
-        )
 
     # now if an indicator has its clean name starting with "dont " it is a sub-indicator.
     # For those, use the dataset sorted by their original order, and assign the last code seen + the suffix
     # "1", "2", etc.
-    df_transformed_restricted = df_transformed_restricted.sort("original_order")
-    df_transformed_restricted = df_transformed_restricted.with_columns(
-        pl.col("indicator_name_clean")
+    df_transformed = df_transformed.sort("original_order")
+    df_transformed = df_transformed.with_columns(
+        pl.col("indicator_name_original")
+        # remove special character "-"
+        .str.replace_all(r"- ", "")
+        .str.to_lowercase()
         .str.starts_with("dont ")
         .alias("is_sub_indicator")
     )
-    df_transformed_restricted = df_transformed_restricted.with_columns(
+    df_transformed = df_transformed.with_columns(
         pl.when(pl.col("is_sub_indicator").not_())
-        .then(pl.col("indicator_code_ref"))
+        .then(pl.col("indicator_code_formatted"))
         .otherwise(None)
         .fill_null(strategy="forward")
         .alias("parent_code")
@@ -457,28 +374,33 @@ def assign_indicator_codes(
     is_new_name = (
         (
             (pl.col("is_sub_indicator"))
-            & (pl.col("indicator_name_clean") != pl.col("indicator_name_clean").shift())
+            & (
+                pl.col("indicator_name_original")
+                != pl.col("indicator_name_original").shift()
+            )
         )
         .fill_null(False)
         .cast(pl.Int32)
     )
-    df_transformed_restricted = df_transformed_restricted.with_columns(
+    df_transformed = df_transformed.with_columns(
         is_new_name.cum_sum().over("parent_code").alias("sub_suffix")
     )
-    df_transformed_restricted = df_transformed_restricted.with_columns(
+    df_transformed = df_transformed.with_columns(
         pl.when(pl.col("is_sub_indicator").not_())
-        .then(pl.col("indicator_code_ref"))
+        .then(pl.col("indicator_code_formatted"))
         .otherwise(pl.col("parent_code") + pl.col("sub_suffix").cast(pl.Utf8))
         .alias("indicator_code_final")
-    )
+    ).drop("parent_code", "sub_suffix", "is_sub_indicator")
 
-    # merge back on reference map to retrieve indicator name and unit for sub-indicators and failed matches
-    df_transformed_restricted = df_transformed_restricted.join(
-        indicators_metadata_reduced.select(
+    # join with metadata to retrieve indicator names (old and new), units (old and new) and status
+    df_transformed = df_transformed.join(
+        indicators_metadata.select(
             [
-                pl.col("indicator_code_ref").alias("indicator_code_final"),
-                pl.col("indicator_name_ref_new").alias("indicator_name_ref_final"),
-                pl.col("unit_ref").alias("unit_ref_final"),
+                pl.col("code").alias("indicator_code_final"),
+                pl.col("designation").alias("indicator_name_old"),
+                pl.col("designation_v2").alias("indicator_name_new"),
+                pl.col("unite").alias("unit_old"),
+                pl.col("unite_v2").alias("unit_new"),
                 pl.col("note"),
             ]
         ),
@@ -486,88 +408,61 @@ def assign_indicator_codes(
         how="left",
     )
 
-    # use the new indicator names for all indicators
-    df_transformed_restricted = df_transformed_restricted.with_columns(
-        pl.col("indicator_name_ref_final").alias("indicator_name_final"),
-        pl.col("unit_ref_final"),
-    )
-
-    # retrict to relevant columns before merging back on the original df_transformed
-    df_transformed_restricted = df_transformed_restricted.select(
-        [
-            "indicator_name_original",
-            "indicator_code_original",
-            "indicator_name_final",
-            "indicator_code_final",
-            "indicator_code_ref_new",
-            "unit_ref_final",
-            "note",
-            "original_order",
-        ]
-    )
-
-    # merge back onto original df by Indicateur_Name and Indicateur_Code to retrieve indicator names and units for all rows (including sub-indicators)
-    cdr_columns = [
-        "indicator_name_original",
-        "indicator_code_original",
-        "unit_original",
-        "country",
-        "value",
-        "value_type",
-        "year",
-        "original_order",
-    ]
-
-    df_transformed = df_transformed.select(cdr_columns).join(
-        df_transformed_restricted,
-        on=["indicator_name_original", "indicator_code_original", "original_order"],
-        how="left",
-    )
-
-    # forward fill the unit_ref_final such thath sub-indicators have the same unit as indicators they are derived from
+    # create indicator_status col (separately for years 2025 and 2026-2027)
     df_transformed = df_transformed.with_columns(
-        pl.col("unit_ref_final").forward_fill().alias("unit_ref_final")
+        pl.when(~pl.col("year").is_in([2021, 2026, 2027]))
+        .then(pl.lit("unchanged"))
+        .when(pl.col("note").str.contains(r"(?i)indicateur supprimé"))
+        .then(pl.lit("deleted"))
+        .when(pl.col("note").str.contains(r"(?i)nouveau nom d'indicateur"))
+        .then(pl.lit("renamed"))
+        .when(pl.col("note").str.contains(r"(?i)indicateur changé"))
+        .then(pl.lit("renamed and unit changed"))
+        .when(pl.col("note").str.contains(r"(?i)nouvel indicateur"))
+        .then(pl.lit("new"))
+        .otherwise(pl.lit("unchanged"))
+        .alias("indicator_status")
     )
 
-    # adjust indicators whose code has changed
-    if cdr_is_2025:
-        df_transformed = df_transformed.with_columns(
-            pl.when(pl.col("note").str.contains(r"(?i)nouveau code d'indicateur"))
-            .then(pl.col("indicator_code_ref_new"))
-            .otherwise(pl.col("indicator_code_final"))
-            .alias("indicator_code_final")
-        )
-
-        # flag indicators that changed in 2025 CDR
-        df_transformed = df_transformed.with_columns(
-            pl.when(
-                pl.col("note").str.contains(
-                    r"(?i)indicateur supprimé|indicateur changé"
-                )
+    # assign final indicators' names and units based on indicator status
+    df_transformed = df_transformed.with_columns(
+        # name
+        pl.when(pl.col("indicator_status").is_in(["unchanged", "deleted"]))
+        .then(pl.col("indicator_name_old"))
+        .when(
+            pl.col("indicator_status").is_in(
+                ["renamed", "renamed and unit changed", "new"]
             )
-            .then(True)
-            .otherwise(False)
-            .alias("indicator_changed")
         )
-    else:
-        df_transformed = df_transformed.with_columns(
-            pl.lit(False).alias("indicator_changed")
+        .then(pl.col("indicator_name_new"))
+        .otherwise(pl.lit(None))
+        .alias("indicator_name_final"),
+        # unit
+        pl.when(pl.col("indicator_status").is_in(["unchanged", "deleted"]))
+        .then(pl.col("unit_old"))
+        .when(
+            pl.col("indicator_status").is_in(
+                ["renamed", "renamed and unit changed", "new"]
+            )
         )
+        .then(pl.col("unit_new"))
+        .otherwise(pl.lit(None))
+        .alias("unit_final"),
+    )
 
-    # drop intermediate columns and rename final code column
-    df_transformed = df_transformed.drop(
+    # only keep relevant cols
+    df_transformed = df_transformed.select(
         [
-            "indicator_name_original",
-            "indicator_code_original",
-            "indicator_code_ref_new",
-            "note",
+            pl.col("indicator_code_final").alias("indicator_code"),
+            pl.col("indicator_name_final").alias("indicator_name"),
+            pl.col("unit_final").alias("unit_ref"),
+            pl.col("unit_original"),
+            pl.col("country"),
+            pl.col("value"),
+            pl.col("year"),
+            pl.col("value_type"),
+            pl.col("indicator_status"),
         ]
-    ).rename(
-        {
-            "indicator_code_final": "indicator_code",
-            "indicator_name_final": "indicator_name",
-            "unit_ref_final": "unit_ref",
-        }
     )
 
     return df_transformed
@@ -593,7 +488,7 @@ def clean_results_values(cdr_df_results: pl.DataFrame) -> pl.DataFrame:
     cdr_df_results = cdr_df_results.with_columns(
         pl.col("country")
         .map_elements(
-            lambda x: config.country_name_mapping.get(x, x), return_dtype=pl.String
+            lambda x: config.country_name_mapping.get(x, None), return_dtype=pl.String
         )
         .alias("country")
     )
@@ -604,8 +499,6 @@ def clean_results_values(cdr_df_results: pl.DataFrame) -> pl.DataFrame:
         .then(pl.col("value") * 1_000_000)
         .when(pl.col("unit_original").str.contains("(?i)millier"))
         .then(pl.col("value") * 1_000)
-        .when(pl.col("unit_original").str.contains("(?i)pourcent"))
-        .then(pl.col("value") / 100)
         .otherwise(pl.col("value"))
     )
 
@@ -637,33 +530,27 @@ def clean_results_values(cdr_df_results: pl.DataFrame) -> pl.DataFrame:
             pl.col("level"),
             pl.col("country"),
             pl.col("value"),
-            pl.col("indicator_changed"),
+            pl.col("indicator_status"),
         ]
     )
 
     return cdr_df_results
 
 
-def combine_target_values(
-    cdr_2025_df: pl.DataFrame, cdr_2026_2027_df: pl.DataFrame
-) -> pl.DataFrame:
+def clean_target_values(cdr_2026_2027_df: pl.DataFrame) -> pl.DataFrame:
     """
     Combine target values from 2025 and 2026-2027 CDRs into a single dataframe
     """
     # restrict both df to target values only
-    cdr_2025_targets_df = cdr_2025_df.filter(pl.col("value_type") == "target")
     cdr_2026_2027_targets_df = cdr_2026_2027_df.filter(pl.col("value_type") == "target")
 
-    # concatenate the two dataframes
-    combined_targets = pl.concat([cdr_2025_targets_df, cdr_2026_2027_targets_df])
-
     # sort indicator code, country and year
-    combined_targets = combined_targets.sort(
+    cdr_2026_2027_targets_df = cdr_2026_2027_targets_df.sort(
         ["indicator_code", "country", "year"], descending=True
     )
 
     # create 'Composante' column based on indicator code (use config file)
-    combined_targets = combined_targets.with_columns(
+    cdr_2026_2027_targets_df = cdr_2026_2027_targets_df.with_columns(
         pl.col("indicator_code")
         .map_elements(
             lambda x: next(
@@ -676,12 +563,19 @@ def combine_target_values(
     )
 
     # create "cumulative values" col taking boolean value false
-    combined_targets = combined_targets.with_columns(
+    cdr_2026_2027_targets_df = cdr_2026_2027_targets_df.with_columns(
         pl.lit(False).alias("cumulative values")
     )
 
+    # standardize values based on unit
+    cdr_2026_2027_targets_df = cdr_2026_2027_targets_df.with_columns(
+        pl.when(pl.col("unit_original").str.contains("(?i)millier"))
+        .then(pl.col("value") * 1_000)
+        .otherwise(pl.col("value"))
+    )
+
     # select and rename relevant columns
-    combined_targets = combined_targets.select(
+    cdr_2026_2027_targets_df = cdr_2026_2027_targets_df.select(
         [
             pl.col("indicator_code").alias("Code"),
             pl.col("indicator_name").alias("Indicateur_Name"),
@@ -690,38 +584,58 @@ def combine_target_values(
             pl.col("year").alias("année"),
             pl.col("value").alias("valeur"),
             pl.col("unit_original").alias("unite"),
-            pl.col("unit_ref").alias("indicator_type"),
             pl.col("cumulative values"),
-            pl.col("indicator_changed"),
+            pl.col("indicator_status"),
         ]
     )
 
-    # clean unit column (remove trailing blanks, inner blanks, and white spaces (e.g. "hectares (milliers,                  valeur cumulée)" should be "hectares (milliers, valeur cumulée)")
-    combined_targets = combined_targets.with_columns(
-        pl.col("unite")
-        .str.replace_all(r"\s+", " ")
-        .str.strip_chars()
-        .map_elements(lambda x: config.unit_mapping.get(x, x))
+    return cdr_2026_2027_targets_df
+
+
+def combine_targets(
+    cdr_targets_old: pl.DataFrame, cdr_2026_2027_targets_df: pl.DataFrame
+) -> pl.DataFrame:
+    """
+    Combine old target values (pre-2026) with new targets from revised CDR (2021 updated + 2026-2027) into a single dataframe
+    """
+    # remove updated data from old targets df (i.e. all target values for years 2021, 2026 and 2027)
+    cdr_targets_old = cdr_targets_old.filter(
+        ~(pl.col("année").is_in([2021, 2026, 2027]))
+    )
+    cdr_targets_old = cdr_targets_old.with_columns(
+        pl.col("année").cast(pl.Int32),
+        pl.col("valeur").cast(pl.Float64),
+    )
+    cdr_targets_old = cdr_targets_old.with_columns(
+        pl.lit("unchanged").alias("indicator_status")
+    )
+
+    combined_targets_df = pl.concat(
+        [cdr_targets_old, cdr_2026_2027_targets_df], how="diagonal"
+    )
+
+    # harmonize unit
+    combined_targets_df = combined_targets_df.with_columns(
+        pl.when(pl.col("unite").str.contains("(?i)nombre"))
+        .then(pl.lit("count"))
+        .when(pl.col("unite").str.contains("(?i)hectare|ha"))
+        .then(pl.lit("surface"))
+        .when(pl.col("unite").str.contains("(?i)tonne"))
+        .then(pl.lit("weight"))
+        .when(pl.col("unite").str.contains("(?i)pourcent"))
+        .then(pl.lit("percent"))
+        .when(pl.col("unite").str.contains("(?i)oui"))
+        .then(pl.lit("boolean"))
+        .otherwise(pl.col("unite"))
         .alias("unite")
     )
 
-    # clean indicator type column based on config mapping
-    combined_targets = combined_targets.with_columns(
-        pl.col("indicator_type")
-        .map_elements(
-            lambda x: config.indicator_type_mapping.get(x, x), return_dtype=pl.String
-        )
-        .alias("indicator_type")
+    # fill in missing indicator status by 'unchanged' (these are the ones that are still used from the old CDR)
+    combined_targets_df = combined_targets_df.with_columns(
+        pl.col("indicator_status").fill_null("unchanged")
     )
 
-    # standardize values based on unit
-    combined_targets = combined_targets.with_columns(
-        pl.when(pl.col("unite").str.contains("(?i)millier"))
-        .then(pl.col("valeur") * 1_000)
-        .otherwise(pl.col("valeur"))
-    )
-
-    return combined_targets
+    return combined_targets_df
 
 
 def save_output(df: pl.DataFrame, dir_name: str, file_name: str):

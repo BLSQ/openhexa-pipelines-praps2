@@ -1,10 +1,54 @@
-missing_indicator_code_mapping = {
+indicator_name_code_mapping = {
+    # IR
+    "Taux de couverture vaccinale pour la PPCB": "IR-1",
+    "Niveau de performance de la stratégie de lutte contre la PPCB": "IR-1",
+    "Nombre de petits ruminants vaccinés et marqués contre la PPR": "IR-2",
+    "Niveau de performance de la stratégie de lutte contre la PPR": "IR-2",
+    "Superficie des terres sous pratiques de gestion durable des paysages": "IR-3",
+    "Zones terrestres faisant l'objet d'une conservation et d'une gestion renforcées": "IR-3",
+    "Accroissement des revenus des ménages pastoraux généré par l'appui du projet": "IR-4",
+    # IRI
     "Niveau de mise en œuvre des Plans Nationaux Stratégiques (PNS) pour la PPR et la PPCB": "IRI-1",
+    "Niveau de mise en œuvre des mesures d'accompagnement des stratégies de lutte contre les maladies prioritaires": "IRI-1",
+    "Unités vétérinaires construites ou réhabilitées par le projet et fonctionnelles dans les zones ciblées": "IRI-2",
+    "Parcs de vaccination construits ou réhabilités par le projet dans les zones ciblées": "IRI-3",
+    "Inspections dédiées au contrôle des médicaments vétérinaires mises en œuvre à travers le projet": "IRI-4",
+    "Comités fonctionnels pour la gestion durable des territoires facilitant la mobilité mis en place ou appuyés par le projet": "IRI-5",
     "Points d’eau fonctionnels accessibles aux (agro)pasteurs sur les axes de déplacement et sur les nouveaux parcours de transhumance appuyés par le projet": "IRI-6",
-    "Fourrage cultivé produit et disponible aux pasteurs et agro-pasteurs grâce au projet ": "IRI-7",
+    "Fourrage cultivé produit et disponible aux pasteurs et agro-pasteurs grâce au projet": "IRI-7",
     "Marchés opérationnels selon des critères définis réhabilités et construits grâce au projet le long des couloirs régionaux": "IRI-8",
+    "Taux d’exécution des plans d’actions élaborés par les organisations pastorales faîtières (part appuyée par le projet)": "IRI-9",
+    "Bénéficiaires des sous-projets innovants de valorisation des filières pastorales promus par le projet": "IRI-10",
+    "Bénéficiaires directs et indirects (y compris emplois créés) des sous-projets innovants de valorisation des filières pastorales promus par le projet": "IRI-10",
     "Femmes et jeunes issus du milieu pastoral ayant bénéficié de programmes de formation technique et professionnelle ou de formation qualifiante": "IRI-11",
+    "Pasteurs et agro-pasteurs ayant obtenu une pièce d'état civil ou une inscription au registre social grâce au projet": "IRI-12",
+    "Bénéficiaires directs d'activités génératrices de revenus promues par le projet": "IRI-13",
     "Cadres techniques et scientifiques formés sur le pastoralisme (y compris formations diplomantes)": "IRI-14",
+    "Paramètres spécifiques au pastoralisme pérennisés dans le système d’alerte précoce national": "IRI-15",
+    "Comités de gestion ayant au moins 15% de femmes participant activement": "IRI-16",
+    "Femmes ayant reçu des formations en gestion financière": "IRI-17",
+    "Nombre de personnes ayant bénéficié d'actions visant à faire progresser l'égalité entre les sexes": "IRI-17",
+    "Agriculteurs ayant bénéficié d’actifs ou de services agricoles": "IRI-18",
+    "Personnes ayant une résilience renforcée face aux risques climatiques": "IRI-18",
+    "Bénéficiaires des activités d'urgence et de rétablissement": "IRI-19",
+    # FA
+    "Superficies de cultures vivrières réhabilitées": "FA-1",
+    "Bénéficiaires d'aliments pour animaux (ruminants, volailles et poissons) dans la zone d’intervention du projet": "FA-2",
+    "Nombre de Personne bénéficiant d’une sécurité alimentaire et d’une nutrition renforcée": "FA-3",
+    "Nombre de personnes bénéficiant d’une sécurité alimentaire et d’une nutrition renforcée": "FA-3",
+    "Bénéficiaires des interventions d'urgence et de relèvement à court terme": "FA-4",
+    "Niveau de satisfaction des bénéficiaires des biens et services fournis par le projet": "FA-4",
+    # Reg Int
+    "Comité Vétérinaire Régional opérationnel": "Reg Int 1",
+    "Accords bilatéraux et multilatéraux facilitant une transhumance pacifique établis grâce au projet": "Reg Int 2",
+    "Taux de réduction des conflits liés aux systèmes d'élevage mobiles dans trois axes de transhumance et de commerce (Ouest, Centre et Est) au Sahel et en Afrique de l'Ouest": "Reg Int 3",
+    "Bénéficiaires indiquant que les investissements du projet contribuent à la réduction des conflits liés à l’utilisation des ressources pastorales": "Reg Int 3",
+    "Barrières commerciales suivies dans des zones de commercialisation transfrontalière sélectionnées et diffusées par le projet": "Reg Int 4",
+    "Capacités institutionnelles nationales et régionales renforcées pour élaborer des politiques et stratégies d'élevage tenant compte du climat": "Reg Int 5",
+    "Capacité régionale renforcée pour mener des analyses prospectives sur le secteur de l'élevage": "Reg Int 6",
+    "Pourcentage des plaintes traitées en conformité avec les temps et protocoles établis": "Reg Int 7",
+    # Other
+    "Bénéficiaires d'équipements post-récolte": "",
 }
 
 regional_indicators = [
@@ -80,25 +124,4 @@ composante_indicator_mapping = {
         "Reg Int 6",
         "Reg Int 7",
     ],
-}
-
-unit_mapping = {
-    "Ha (valeur cumulée)": "Ha (cumulé)",
-    "hectares (milliers, valeur cumulée)": "Milliers d’ha (cumulé)",
-    "nombre": "Nombre",
-    "nombre (valeur cumulée)": "Nombre (valeur cumulée)",
-    "nombre d'études (valeur cumulée)": "Nombre d'études (valeur cumulée)",
-    "nombre de pays et institutions (valeur cumulée)": "Nombre de pays et institutions (valeur cumulée)",
-    "nombre de sessions par an": "Nombre de sessions par an",
-    "oui / non": "Oui/Non",
-    "pourcentage": "Pourcentage",
-    "tonnes (valeur cumulée)": "Tonnes (cumulé)",
-}
-
-indicator_type_mapping = {
-    "percent": "Pourcentage",
-    "count": "Nombre",
-    "surface": "Nombre",
-    "weight": "Nombre",
-    "boolean": "Oui/Non",
 }

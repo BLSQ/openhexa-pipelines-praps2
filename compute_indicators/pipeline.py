@@ -77,10 +77,11 @@ def compute(survey_dir: Path, cdr_dir: str):
 
     indicators_metadata = pl.read_csv(Path(cdr_dir, "indicators_metadata_v2.csv"))
     indicators_metadata = indicators_metadata.select(
-        pl.col("code").alias("code_old"),
-        pl.col("code_v2").alias("code_new"),
-        pl.col("designation_v2").alias("designation"),
-        pl.col("unite_v2").alias("unit"),
+        pl.col("code"),
+        pl.col("designation").alias("designation"),
+        pl.col("designation_v2").alias("designation_new"),
+        pl.col("unite").alias("unit"),
+        pl.col("unite_v2").alias("unit_new"),
         pl.col("note"),
     )
 

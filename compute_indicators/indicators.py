@@ -17,7 +17,7 @@ def ir_1(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
                 "level": 2,
                 "country": row["DATE4"],
                 "indicator_code": "IR-1",
-                "value": row["DATE11"] / 100,
+                "value": row["DATE11"],
             }
         )
     df = pl.DataFrame(rows)
@@ -183,7 +183,7 @@ def iri_1(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
             pl.format("{}-01-01", pl.col("DATE5")).alias("date"),
             pl.lit(2).alias("level"),
             pl.col("DATE4").alias("country"),
-            pl.col("IRI-1").alias("value") / 100,
+            pl.col("IRI-1").alias("value"),
         ]
     )
 
@@ -409,7 +409,7 @@ def iri_9(indicateurs_pays: pl.DataFrame) -> pl.DataFrame:
             pl.format("{}-01-01", "DATE5").alias("date"),
             pl.lit(2).alias("level"),
             pl.col("DATE4").alias("country"),
-            pl.col("IRI-9").alias("value") / 100,
+            pl.col("IRI-9").alias("value"),
         ]
     )
 
@@ -1027,7 +1027,7 @@ def iri_17(
             pl.col("LINO6").alias("coordinates"),
             pl.col("VAINO7").alias("denominator"),
             pl.col("VAINO8").fill_null(0).alias("numerator"),
-            ((pl.col("VAINO8").fill_null(0) / pl.col("VAINO7")).round(3)).alias(
+            ((pl.col("VAINO8").fill_null(0) / pl.col("VAINO7")).round(3) * 100).alias(
                 "value"
             ),
         ]
@@ -1046,7 +1046,7 @@ def iri_17(
             pl.col("LAGR6").alias("coordinates"),
             pl.col("VAAGR7").alias("denominator"),
             pl.col("VAAGR7A").fill_null(0).alias("numerator"),
-            ((pl.col("VAAGR7A").fill_null(0) / pl.col("VAAGR7")).round(3)).alias(
+            ((pl.col("VAAGR7A").fill_null(0) / pl.col("VAAGR7")).round(3) * 100).alias(
                 "value"
             ),
         ]
@@ -1298,7 +1298,7 @@ def load_praps1_data(fname: str) -> pl.DataFrame:
                 ["IR-1", "IRI-17", "IRI-1", "IRI-9", "Reg Int 7"]
             )
         )
-        .then(pl.col("value") / 100)
+        .then(pl.col("value"))
         .otherwise(pl.col("value"))
         .alias("value")
     )
@@ -1380,12 +1380,14 @@ def join_metadata(df: pl.DataFrame, indicators_metadata: pl.DataFrame) -> pl.Dat
         other=indicators_metadata,
         how="left",
         left_on="indicator_code",
-        right_on="code_old",
+        right_on="code",
     ).select(
         [
-            pl.col("code_new").alias("indicator_code"),
-            pl.col("designation").alias("indicator_name"),
-            pl.col("unit"),
+            pl.col("indicator_code"),
+            pl.col("designation").alias("indicator_name_old"),
+            pl.col("designation_new").alias("indicator_name_new"),
+            pl.col("unit").alias("unit_old"),
+            pl.col("unit_new").alias("unit_new"),
             pl.col("note"),
             pl.col("date").str.slice(0, 4).cast(int),
             pl.col("project"),
@@ -1402,14 +1404,63 @@ def join_metadata(df: pl.DataFrame, indicators_metadata: pl.DataFrame) -> pl.Dat
         ]
     )
 
-    # flag indicators that changed based on note
+    # create indicator_status col (separately for years 2025 and 2026-2027)
     df = df.with_columns(
-        pl.when(
-            pl.col("note").str.contains(r"(?i)indicateur supprimé|indicateur changé")
+        pl.when(~pl.col("date").is_in([2021, 2026, 2027]))
+        .then(pl.lit("unchanged"))
+        .when(pl.col("note").str.contains(r"(?i)indicateur supprimé"))
+        .then(pl.lit("deleted"))
+        .when(pl.col("note").str.contains(r"(?i)nouveau nom d'indicateur"))
+        .then(pl.lit("renamed"))
+        .when(pl.col("note").str.contains(r"(?i)indicateur changé"))
+        .then(pl.lit("renamed and unit changed"))
+        .when(pl.col("note").str.contains(r"(?i)nouvel indicateur"))
+        .then(pl.lit("new"))
+        .otherwise(pl.lit("unchanged"))
+        .alias("indicator_status")
+    )
+
+    # assign final indicators' names and units based on indicator status
+    df = (
+        df.with_columns(
+            # name
+            pl.when(pl.col("indicator_status").is_in(["unchanged", "deleted"]))
+            .then(pl.col("indicator_name_old"))
+            .when(
+                pl.col("indicator_status").is_in(
+                    ["renamed", "renamed and unit changed", "new"]
+                )
+            )
+            .then(pl.col("indicator_name_new"))
+            .otherwise(pl.lit(None))
+            .alias("indicator_name_final"),
+            # unit
+            pl.when(pl.col("indicator_status").is_in(["unchanged", "deleted"]))
+            .then(pl.col("unit_old"))
+            .when(
+                pl.col("indicator_status").is_in(
+                    ["renamed", "renamed and unit changed", "new"]
+                )
+            )
+            .then(pl.col("unit_new"))
+            .otherwise(pl.lit(None))
+            .alias("unit_final"),
         )
-        .then(True)
-        .otherwise(False)
-        .alias("indicator_changed")
+        .drop(
+            [
+                "indicator_name_old",
+                "indicator_name_new",
+                "unit_old",
+                "unit_new",
+                "note",
+            ]
+        )
+        .rename(
+            {
+                "indicator_name_final": "indicator_name",
+                "unit_final": "unit",
+            }
+        )
     )
 
     return df
@@ -1432,7 +1483,9 @@ def aggregate_ratios(df: pl.DataFrame, agg_columns: Sequence[str]) -> pl.DataFra
         )
         .group_by(agg_columns)
         .agg([pl.col("numerator").sum(), pl.col("denominator").sum()])
-        .with_columns((pl.col("numerator") / pl.col("denominator")).alias("value"))
+        .with_columns(
+            (100 * (pl.col("numerator") / pl.col("denominator"))).alias("value")
+        )
     )
 
 
@@ -1469,7 +1522,7 @@ def spatial_aggregation(df: pl.DataFrame) -> pl.DataFrame:
         "level",
         "country",
         "region",
-        "indicator_changed",
+        "indicator_status",
     ]
     df_lvl6 = df.filter(pl.col("level") == 6)
     counts = aggregate_counts(df=df_lvl6, agg_columns=AGG_COLUMNS)
@@ -1526,7 +1579,7 @@ def spatial_aggregation(df: pl.DataFrame) -> pl.DataFrame:
                 "numerator",
                 "denominator",
                 "value",
-                "indicator_changed",
+                "indicator_status",
             ]
         )
         .sort(["indicator_code", "date", "country", "region"])
@@ -1543,56 +1596,60 @@ def fill_missing_values(df: pl.DataFrame) -> pl.DataFrame:
     rows = []
 
     for code in df["indicator_code"].unique():
-        df_ = df.filter(pl.col("indicator_code") == code)
-        name = df_["indicator_name"][0]
-        unit = df_["unit"][0]
-        indicator_changed = df_["indicator_changed"][0]
+        df_code = df.filter((pl.col("indicator_code") == code))
 
         for year in YEARS:
-            if year <= 2021:
-                project = "PRAPS1"
-            else:
-                project = "PRAPS2"
+            df_ = df_code.filter(pl.col("date") == year)
 
-            baserow = {
-                "indicator_code": code,
-                "indicator_name": name,
-                "unit": unit,
-                "date": year,
-                "project": project,
-                "level": None,
-                "country": None,
-                "region": None,
-                "numerator": None,
-                "denominator": None,
-                "value": None,
-                "indicator_changed": indicator_changed,
-            }
+            if not df_.is_empty():
+                name = df_["indicator_name"][0]
+                unit = df_["unit"][0]
+                indicator_status = df_["indicator_status"][0]
 
-            row = baserow.copy()
-            row["level"] = 1
-            row["country"] = "Régional"
-            rows.append(row)
+                if year <= 2021:
+                    project = "PRAPS1"
+                else:
+                    project = "PRAPS2"
 
-            for country in COUNTRIES:
-                if df_["level"].max() >= 2:
-                    row = baserow.copy()
-                    row["level"] = 2
-                    row["country"] = country
-                    rows.append(row)
+                baserow = {
+                    "indicator_code": code,
+                    "indicator_name": name,
+                    "unit": unit,
+                    "date": year,
+                    "project": project,
+                    "level": None,
+                    "country": None,
+                    "region": None,
+                    "numerator": None,
+                    "denominator": None,
+                    "value": None,
+                    "indicator_status": indicator_status,
+                }
 
-                if df_["level"].max() >= 3:
-                    for region in df_.filter(pl.col("country") == country)[
-                        "region"
-                    ].unique():
-                        if not region:
-                            continue
+                row = baserow.copy()
+                row["level"] = 1
+                row["country"] = "Régional"
+                rows.append(row)
 
+                for country in COUNTRIES:
+                    if df_["level"].max() >= 2:
                         row = baserow.copy()
-                        row["level"] = 3
+                        row["level"] = 2
                         row["country"] = country
-                        row["region"] = region
                         rows.append(row)
+
+                    if df_["level"].max() >= 3:
+                        for region in df_.filter(pl.col("country") == country)[
+                            "region"
+                        ].unique():
+                            if not region:
+                                continue
+
+                            row = baserow.copy()
+                            row["level"] = 3
+                            row["country"] = country
+                            row["region"] = region
+                            rows.append(row)
 
     df_nulls = pl.DataFrame(data=rows, schema=df.schema)
     df = pl.concat([df, df_nulls], how="diagonal_relaxed").unique(
@@ -1604,10 +1661,15 @@ def fill_missing_values(df: pl.DataFrame) -> pl.DataFrame:
 
 
 def integrate_cdr_data(df_kobo: pl.DataFrame, cdr_dir: str) -> pl.DataFrame:
-    """Integrate PRAPS2 indicators computed from Kobo data with indicators computed from CDR data."""
+    """Integrate PRAPS2 indicator values computed from Kobo with indicator values from 2025 CDR data."""
+    # drop all Kobo entries for 2026-2027 (these will be replaced by CDR data)
+    df_kobo = df_kobo.filter(~pl.col("date").is_in([2026, 2027]))
+
+    # concatenate Kobo and CDR data
     df_cdr_2025 = load_cdr_data(cdr_dir, "cdr_results_2025.parquet")
     df_cdr_2025 = df_cdr_2025.drop(pl.col("date")).rename({"year": "date"})
     df_kobo = df_kobo.with_columns(pl.lit("kobo").alias("data_source"))
+    df_kobo = df_kobo.with_columns(pl.lit("unchanged").alias("indicator_status"))
     combined_df = pl.concat([df_kobo, df_cdr_2025], how="diagonal_relaxed")
 
     # flag kobo entries that overlap with cdr
@@ -1643,14 +1705,30 @@ def cumulate_counts(df: pl.DataFrame) -> pl.DataFrame:
                     pl.col("value")
                     .fill_null(0)
                     .cum_sum()
-                    .over(["indicator_code", "country", "region"])
+                    .over(
+                        [
+                            "indicator_code",
+                            "indicator_name",
+                            "unit",
+                            "country",
+                            "region",
+                        ]
+                    )
                     .alias("cumulated_value"),
                     pl.when(pl.col("project") == "PRAPS2")
                     .then(pl.col("value"))
                     .otherwise(None)
                     .fill_null(0)
                     .cum_sum()
-                    .over(["indicator_code", "country", "region"])
+                    .over(
+                        [
+                            "indicator_code",
+                            "indicator_name",
+                            "unit",
+                            "country",
+                            "region",
+                        ]
+                    )
                     .alias("cumulated_value_praps2"),
                 ]
             )
@@ -1701,12 +1779,28 @@ def cumulate_ratios(df: pl.DataFrame) -> pl.DataFrame:
                     pl.col("numerator")
                     .fill_null(0)
                     .cum_sum()
-                    .over(["indicator_code", "country", "region"])
+                    .over(
+                        [
+                            "indicator_code",
+                            "indicator_name",
+                            "unit",
+                            "country",
+                            "region",
+                        ]
+                    )
                     .alias("cumulated_numerator"),
                     pl.col("denominator")
                     .fill_null(0)
                     .cum_sum()
-                    .over(["indicator_code", "country", "region"])
+                    .over(
+                        [
+                            "indicator_code",
+                            "indicator_name",
+                            "unit",
+                            "country",
+                            "region",
+                        ]
+                    )
                     .alias("cumulated_denominator"),
                 ]
             )
@@ -1783,6 +1877,6 @@ def retro_compatibility(df: pl.DataFrame) -> pl.DataFrame:
             pl.col("cumulated_denominator").alias("cumulative_denominator"),
             pl.col("cumulated_value").alias("cumulative_value"),
             pl.col("cumulated_value_praps2").alias("cumulative_value_praps2"),
-            pl.col("indicator_changed"),
+            pl.col("indicator_status"),
         ]
     )

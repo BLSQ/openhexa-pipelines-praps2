@@ -104,6 +104,7 @@ def transform(src_dir: str, output_dir: str, wait: bool) -> bool:
         survey = pl.read_parquet(src_file)
         df, df_no_duplicates = surveys.transform_survey(survey, name)
 
+        df.write_parquet(Path(output_dir, "surveys", f"{name}_with_duplicates.parquet"))
         df_no_duplicates.write_parquet(Path(output_dir, "surveys", f"{name}.parquet"))
         df_no_duplicates.write_excel(Path(output_dir, "surveys", f"{name}.xlsx"))
 

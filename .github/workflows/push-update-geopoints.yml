@@ -1,10 +1,10 @@
-name: Push "traiter les donnees des cdr" pipeline
+name: Push "update geopoints" pipeline
 
 on:
   workflow_dispatch:
   push:
     paths:
-      - ".github/workflows/push-update_geopoints.yml"
+      - ".github/workflows/push-update-geopoints.yml"
       - "update_geopoints/**"
 
 jobs:

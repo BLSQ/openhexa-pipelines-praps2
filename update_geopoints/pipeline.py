@@ -32,7 +32,6 @@ def update_geopoints():
     redeploy_kobo_form(config.KOBO_BASE_URL, config.FORM_ID, config.HEADERS)
 
 
-@update_geopoints.task
 def download_kobo_form_data(base_url: str, form_id: str) -> list:
     """
     Downloads the latest submissions from the simplified KoboToolbox form.
@@ -44,7 +43,7 @@ def download_kobo_form_data(base_url: str, form_id: str) -> list:
     Returns:
         list: A list of all submissions retrieved from the form.
     """
-    current_run.log_info("Donwloading Kobo data...")
+    current_run.log_info("Downloading Kobo data...")
     data_url = f"{base_url}/api/v2/assets/{form_id}/data.json"
     submissions = []
 
@@ -63,7 +62,6 @@ def download_kobo_form_data(base_url: str, form_id: str) -> list:
     return submissions
 
 
-@update_geopoints.task
 def delete_duplicate_submissions(submissions: list) -> list:
     """
     Deletes duplicate submissions based on the INFRASTRUCTURE ID, keeping only the latest submission for each ID.
@@ -78,7 +76,7 @@ def delete_duplicate_submissions(submissions: list) -> list:
     submissions.sort(key=lambda x: x.get("starttime", ""), reverse=True)
     unique_submissions = {}
     for sub in submissions:
-        infra_id = sub.get("group3/INFRASTRUCTURE_ID")
+        infra_id = sub.get("group2-1/INFRASTRUCTURE_ID")
         if infra_id and infra_id not in unique_submissions:
             unique_submissions[infra_id] = sub
 
@@ -90,7 +88,6 @@ def delete_duplicate_submissions(submissions: list) -> list:
     return submissions
 
 
-@update_geopoints.task
 def generate_geopoints_dataset(submissions: list) -> list:
     """
     Generates a geopoints dataset from the submissions.
@@ -106,14 +103,14 @@ def generate_geopoints_dataset(submissions: list) -> list:
     geopoints = []
     for sub in submissions:
         # Check if the record has an ID, Label, and Geometry (Coordinates)
-        infra_id = sub.get("group3/INFRASTRUCTURE_ID")
-        luv3_label = sub.get("group3/LUV3")
-        luv5_label = sub.get("group3/LUV5")
-        luv6_geo = sub.get("group3/LUV6")
+        infra_id = sub.get("group2-1/INFRASTRUCTURE_ID")
+        luv3_label = sub.get("group2-1/LUV3")
+        luv5_label = sub.get("group2-1/LUV5")
+        luv6_geo = sub.get("group2-1/LUV6")
         type_acronym = sub.get("group2/TYPE_ACRONYM")
 
         # Only include valid points
-        if infra_id and luv5_label and luv6_geo:
+        if infra_id:
             geopoints.append(
                 {
                     "LUV3": luv3_label,
@@ -128,6 +125,14 @@ def generate_geopoints_dataset(submissions: list) -> list:
         current_run.log_info("No valid coordinates found in the database. Exiting.")
         return
 
+    # Sort alphabetically by INFRASTRUCTURE_ID
+    geopoints.sort(
+        key=lambda point: (
+            point["INFRASTRUCTURE_ID"].casefold(),
+            point["INFRASTRUCTURE_ID"],
+        )
+    )
+
     current_run.log_info(
         f"Successfully generated geopoints dataset with {len(geopoints)} points."
     )
@@ -135,7 +140,6 @@ def generate_geopoints_dataset(submissions: list) -> list:
     return geopoints
 
 
-@update_geopoints.task
 def convert_to_csv(geopoints: list) -> str:
     """
     Converts the geopoints dataset to a CSV format.
@@ -161,7 +165,6 @@ def convert_to_csv(geopoints: list) -> str:
     return csv_content
 
 
-@update_geopoints.task
 def delete_current_geopoints_dataset(
     base_url: str, form_id: str, headers: dict, geopoints_file_name: str
 ):
@@ -185,7 +188,6 @@ def delete_current_geopoints_dataset(
             requests.delete(delete_url, headers=headers)
 
 
-@update_geopoints.task
 def upload_updated_geopoints_dataset(
     base_url: str,
     form_id: str,
@@ -227,7 +229,6 @@ def upload_updated_geopoints_dataset(
     )
 
 
-@update_geopoints.task
 def redeploy_kobo_form(base_url: str, form_id: str, headers: dict):
     """Redeploys the Kobo form."""
     current_run.log_info("Redeploying Kobo form...")

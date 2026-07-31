@@ -82,8 +82,10 @@ def row_to_odk_xml(id_string, version_string, record, xpath_map):
 # -------------------------------------------------------------------------
 # 2. Load and Stream Excel Data Bundle
 # -------------------------------------------------------------------------
-print(f"Reading historical data from Excel workbook: {config.OUTPUT_FILE}...")
-df = pl.read_excel(config.OUTPUT_FILE)
+print(
+    f"Reading historical data from Excel workbook: {config.OUTPUT_PATH}/CONSOLIDATED_DB_with_infrastructure_id.xlsx..."
+)
+df = pl.read_excel(f"{config.OUTPUT_PATH}/CONSOLIDATED_DB_with_infrastructure_id.xlsx")
 
 records = df.to_dicts()
 

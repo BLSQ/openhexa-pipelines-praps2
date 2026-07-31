@@ -181,3 +181,6 @@ workspace.yaml
 
 # Windows thumbnail cache files
 *Zone.Identifier
+
+# image
+*.png

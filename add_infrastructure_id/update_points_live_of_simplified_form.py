@@ -4,9 +4,6 @@ import io
 import config
 
 
-# ==========================================
-# CONFIGURATION
-# ==========================================
 def sync_kobo_map_data():
     print("Fetching live data from KoboToolbox...")
 

@@ -1,6 +1,6 @@
 # CLAUDE.md — PRAPS `extract-surveys` pipeline
 
-Instructions for Claude Code working on this repository.
+Instructions and reference for Claude Code working on this repository.
 
 ---
 
@@ -12,121 +12,76 @@ countries. It downloads KoboToolbox survey submissions, transforms them, writes 
 OpenHexa workspace, pushes tables to the OpenHexa PostgreSQL/PostGIS warehouse, and publishes
 OpenHexa datasets.
 
-Two files matter:
+Three files matter:
 
 | File | Role |
 | --- | --- |
 | `pipeline.py` | OpenHexa pipeline definition + 4 tasks: `download`, `transform`, `push`, `update_datasets` |
-| `surveys.py` | Helper library: survey download, per-survey constants, `transform_survey`, `drop_duplicates`, `concatenate_snapshots`, serialization helpers |
+| `surveys.py` | Helper library: survey download, per-survey constants, `transform_survey`, the split/reconstruction logic, `drop_duplicates`, `concatenate_snapshots` |
+| `legacy_schema.py` | Data only: the pre-migration column schema of each reconstructed table, and the field-rename map that populates it |
 
-Downstream consumer that constrains everything below: a **Geonode server** renders each
+**Downstream consumer that constrains everything below:** a **Geonode server** renders each
 infrastructure table on a digital web map using **hard-coded column names** in its layer
-configuration. Renaming or dropping a column breaks the map. `push()` therefore also mirrors each
-table into a legacy `PRAPS2_*` table that Geonode still reads.
+configuration. Renaming or dropping a column breaks the map. `push()` therefore also mirrors most
+tables into a legacy `PRAPS2_*` table that Geonode still reads.
+
+**Related pipeline:** `sync_attachments` (sibling directory) reads this pipeline's
+`surveys/{name}.parquet` outputs to find and re-upload photo attachments to GCS. It is not part of
+this pipeline's scope, but its `SURVEYS` list should stay in sync with what's actually produced
+here (see §9).
 
 ---
 
-## 2. Objective
+## 2. Architecture
 
-Today the pipeline was designed around **11 separate Kobo surveys** (`SURVEYS` in both files, now
-mostly commented out). It must instead consume **one consolidated Kobo survey** and *fan it back
-out* into the table shapes downstream systems already expect.
+Kobo collects pastoral infrastructure data through **one consolidated survey**,
+`fiche_simplifiee_infrastructures` (uid `aRZ43wRerX8pCdo4XrKw4n`, form `id_string` `TBT`), which
+merges what used to be 4 separate surveys plus a 5th infrastructure category that never had its
+own survey. Alongside it, **4 unrelated surveys** never merged into the consolidated form and are
+still collected and processed independently: `fourrage_cultive`, `sous_projets_innovants`,
+`gestion_durable_des_paysages`, `activites_generatrices_de_revenus`.
 
-**In:** one survey — `fiche_simplifiee_infrastructures`, uid `aRZ43wRerX8pCdo4XrKw4n`.
-It merges what used to be 4 separate surveys, plus a 5th category of infrastructure that never had
-its own survey.
+```
+pipeline.py
+  LEGACY_SURVEYS      = 4 standalone surveys (uid, name) -- never merged into the consolidated form
+  CONSOLIDATED_SURVEY = (uid, "fiche_simplifiee_infrastructures")
+  SURVEYS             = LEGACY_SURVEYS + [CONSOLIDATED_SURVEY]   # drives download()
+```
 
-**Out:** five sets of outputs (files + DB tables):
+`download()` fetches all 5 surveys' raw data + field metadata, unchanged in shape from Kobo.
 
-| Output name | Selected from consolidated survey by |
+`transform()` then produces **10 output tables**, each getting the same 5 artefacts
+(`surveys/{name}_with_duplicates.parquet`, `surveys/{name}.parquet`, `surveys/{name}.xlsx`,
+`geo/{name}.gpkg`, `snapshots/{name}_snapshots.parquet`) via the shared `_write_survey_outputs()`
+helper in `pipeline.py`:
+
+| Output table | Source |
 | --- | --- |
-| `marches_a_betail` | `CDR` == `Marché à bétail` |
-| `parcs_de_vaccination` | `CDR` == `Parc de vaccination` |
-| `points_d_eau` | `CDR` == `Point d'eau` |
-| `unites_veterinaires` | `CDR` == `Unité vétérinaire` |
-| `infrastructures_hors_cdr` | `HCDR` is not empty (new table, no predecessor) |
+| `fourrage_cultive`, `sous_projets_innovants`, `gestion_durable_des_paysages`, `activites_generatrices_de_revenus` | Downloaded and transformed independently (`surveys.LEGACY_SURVEYS`) |
+| `fiche_simplifiee_infrastructures` | The full consolidated survey, as downloaded (after dropping blocked/partial submissions, §3.3) |
+| `marches_a_betail`, `parcs_de_vaccination`, `points_d_eau`, `unites_veterinaires` | Split out of the consolidated survey by `CDR` (§3.2), then reconstructed to their pre-migration column shape (§4) |
+| `infrastructures_hors_cdr` | Split out of the consolidated survey by `HCDR` non-empty (§3.2) — new table, no predecessor |
 
-**The hard requirement — "reconstruct":** each of the 4 pre-existing output tables must expose
-**exactly the same column names it had before**, *even for columns that no longer exist in the
-consolidated survey* (those become all-null columns of the right type), **plus** the new columns
-that only exist in the consolidated survey. Extra columns are fine — Geonode ignores columns it
-does not reference. Missing or renamed columns are a regression.
+`push()` writes every one of those 10 tables' `.gpkg` to PostGIS (plus a `{name}_snapshots` table
+from the snapshots parquet), then mirrors 9 of them (everything except
+`fiche_simplifiee_infrastructures` itself) into legacy `PRAPS2_*`-named tables for Geonode.
 
-Note that "reconstruct" is **not** just adding null columns: the consolidated survey uses **one
-field name per concept** where the 4 old surveys each used their own prefixed names (the location
-block is `LUV1..LUV6` in the consolidated form, but was `LMB1..LMB6` in `marches_a_betail`,
-`LPE1..LPE5/LPE7` in `points_d_eau`, `LVAC1..LVAC6` in `parcs_de_vaccination`; likewise `STMB*` vs
-`STPE*` / `STVAC*` / `STUV*`). So the job per output table is: **rename** consolidated fields to that
-survey's historical names, **add** the missing ones as typed nulls, and **keep** the consolidated-only
-ones. §5 gives the two authoritative sources for both halves of that.
+`update_datasets()` publishes an OpenHexa dataset for 9 of the 10 tables (everything except
+`fiche_simplifiee_infrastructures`, which is treated as an intermediate form — see §7).
 
-The 7 other historical surveys — `indicateurs_regionaux`, `indicateurs_pays`, `fourrage_cultive`,
-`sous_projets_innovants`, `gestion_durable_des_paysages`, `activites_generatrices_de_revenus`,
-`cultures_vivrieres` — are **out of scope**: do not download, transform, push, or publish them.
-Remove the code paths that special-case them (see §7).
+The 3 surveys **not** handled by this pipeline at all — `indicateurs_regionaux`,
+`indicateurs_pays`, `cultures_vivrieres` — are out of scope; see §8.
 
 ---
 
-## 3. Decisions already taken (do not re-litigate)
+## 3. The consolidated survey (`fiche_simplifiee_infrastructures`)
 
-1. **Legacy schemas are hard-coded** in `surveys.py` as an explicit per-table column → dtype
-   mapping — *derived* from the two on-disk sources in §5, but committed as literal constants. No
-   runtime database introspection and no reading of the reference parquet files at pipeline run time.
-   Reading those sources is a **blocking prerequisite** (§5), not part of the pipeline.
-2. **No `fiche_simplifiee_infrastructures` output.** The consolidated form is an intermediate only:
-   no `fiche_simplifiee_infrastructures` DB table, no dataset, no `surveys/`/`geo/`/`snapshots/`
-   artefact for it. Keeping the downloaded `raw/fiche_simplifiee_infrastructures.parquet` and
-   `metadata/fiche_simplifiee_infrastructures_fields.*` is expected and required. **Superseded by
-   §10.9: files + DB push were later added back for this survey too — dataset/Geonode mirror
-   still excluded.**
-3. **`infrastructures_hors_cdr`** gets full pipeline treatment (files, gpkg, DB table, snapshots)
-   and is wired into `update_datasets` and the Geonode mirror **with clearly-marked placeholder
-   constants** for the dataset UID and the mirror table name — Lionel will fill them in. The code
-   must skip those steps gracefully (log, continue) while the placeholders are unfilled.
-4. **Scope: `pipeline.py` and `surveys.py` only** (plus, if genuinely useful, one new module for the
-   legacy schema constants). No opportunistic refactors, no reformatting untouched code, no new
-   dependencies. Leave the commented-out duplicate-detection code (`haversine`, `group_pairs`,
-   `identify_duplicates`, …) exactly where it is. **Superseded by §10.7: Lionel later asked for
-   this block to be removed as part of a dead-code cleanup — it is gone as of that date.**
-   *Reading* outside that scope is expected and required — the reference parquet files and the
-   `add_infrastructure_id` pipeline's `config.py` (§5) are inputs. Do not **edit** anything outside
-   the two files, and in particular do not modify the `add_infrastructure_id` pipeline.
+Source: XLSForm `FICHE_SIMPLIFIEE_INFRASTRUCTURES_final_config_v7.xlsx` (shipped in this pipeline
+folder), form version `3107261400`, default language `french`. Always cross-check against the
+actual downloaded parquet before relying on a field being present — Kobo omits any column no
+submission has ever answered, and the deployed form may have moved on since this file was written.
 
----
-
-## 4. Ground truth: the consolidated survey
-
-Taken from the XLSForm **`FICHE_SIMPLIFIEE_INFRASTRUCTURES_final_config_v7.xlsx`** (contained in the pipeline folder `.../extract_surveys`) — form `id_string` `TBT`, `version` `3107261400`, default language `french`,
-**85 form rows**. Use it as the reference for what the new
-survey does and does not contain — but always confirm against the actual downloaded parquet, since
-Kobo adds `_`-prefixed system columns, drops columns that were never answered by anyone, and the
-deployed form may differ from this config file.
-
-
-**Consequence you must handle — partial / blocked submissions.** When an enumerator types an
-identifier at `IDT` that already exists, the rest of the form is skipped and the submission can be
-saved containing only `group1` + `group2`: **no `LUV1..LUV6`, no `_geolocation`, no
-`INFRASTRUCTURE_ID`, no `STMB*`, no photos.** Today's code assumes those exist. Concretely:
-
-* `drop_duplicates(subset="INFRASTRUCTURE_ID")` would collapse *all* such rows into a single row
-  (null == null in `unique`), and `concatenate_snapshots` would carry that artefact forward;
-* `transform_survey`'s `pl.col("level_7").struct.json_encode()` fails if `LUV6` is missing from the
-  frame or is not a struct column;
-* the `GEO_COLUMNS` aliasing (`pl.col(field).alias(f"level_{lvl}")`) raises `ColumnNotFoundError` if
-  a `LUV*` column is absent from the parquet entirely;
-* `_geolocation` null → `LATITUDE`/`LONGITUDE` null → no geometry, so these rows must not reach the
-  gpkg / PostGIS write.
-
-Required handling: guard the `GEO_COLUMNS` / `level_7` steps with `if <col> in df.columns`, and drop
-blocked/partial submissions **after** `transform_survey` and **before** the split — filter to rows
-where `INFRASTRUCTURE_ID` is non-null and non-blank — logging the dropped count with
-`current_run.log_warning`. These are data-entry rejects, not real infrastructures; they must not
-reach any output table.
-
-**Verified unchanged from v5:** the entire `choices` sheet (2716 rows, byte-identical set), so the
-`TYPE` / `CDR` / `HCDR` code↔label tables in §4.2 remain valid. No field was removed or renamed.
-
-### 4.1 Field inventory (in form order)
+### 3.1 Field inventory (in form order)
 
 ```
 start           starttime
@@ -158,15 +113,15 @@ group2 — TYPE / CATEGORY
   text          STMB2
   select_one    STMB0          LIST: 1 = Oui, 2 = Non  (new site vs existing site)
   text          IDT            relevant: STMB0 = 1        (manual identifier entry)
-  calculate     IDT_DUP_COUNT  [NEW v7] count of points_live rows whose INFRASTRUCTURE_ID = IDT
-  note          IDT_DUP        [NEW v7] relevant: IDT != '' and IDT_DUP_COUNT > 0
-  acknowledge   IDT_DUP_BLOCK  [NEW v7] required; relevant: IDT != '' and IDT_DUP_COUNT > 0
+  calculate     IDT_DUP_COUNT  count of points_live rows whose INFRASTRUCTURE_ID = IDT
+  note          IDT_DUP        relevant: IDT != '' and IDT_DUP_COUNT > 0
+  acknowledge   IDT_DUP_BLOCK  required; relevant: IDT != '' and IDT_DUP_COUNT > 0
   text          STMB01         relevant: STMB0 = 2
   text          STMB02         relevant: STMB0 = 2
   text          STMB03         relevant: STMB0 = 2
-  calculate     TYPE_ACRONYM   MB|PV|PE|UV for CDR 1-4, else HCDR acronym (see 4.3)
+  calculate     TYPE_ACRONYM   MB|PV|PE|UV for CDR 1-4, else HCDR acronym (see §3.2)
 
-group2-1 — LOCATION        [v7] relevant: (IDT = '' or IDT_DUP_COUNT = 0)
+group2-1 — LOCATION        relevant: (IDT = '' or IDT_DUP_COUNT = 0)
   select_one    LUV1           Pays        (6 choices)
   select_one    LUV2           Region      (80)
   select_one    LUV3           Departement (359)
@@ -174,7 +129,7 @@ group2-1 — LOCATION        [v7] relevant: (IDT = '' or IDT_DUP_COUNT = 0)
   text          LUV5
   select_one_from_file points_live.csv  LUV6_existing   relevant: STMB0 = 2
   geopoint      LUV6_manual    relevant: STMB0 = 1
-  geopoint      LUV6
+  calculate     LUV6           = LUV6_existing or LUV6_manual, as a plain string (not a struct)
   calculate     NEARBY_RADIUS  constant 1500 (metres)
   calculate     NEARBY_COUNT   nearby points_live entries, same LUV3 + same TYPE_ACRONYM
   calculate     NEARBY_IDS     comma-joined INFRASTRUCTURE_IDs of those
@@ -182,19 +137,19 @@ group2-1 — LOCATION        [v7] relevant: (IDT = '' or IDT_DUP_COUNT = 0)
   calculate     DUP_COUNT
   calculate     INFRASTRUCTURE_ID   = IDT, else LUV6_existing, else BASE_ID[_DUP_COUNT]
   note          IDT2
-  calculate     NEARBY_MSG     [NEW v7] warning text built from NEARBY_COUNT / NEARBY_IDS
+  calculate     NEARBY_MSG     warning text built from NEARBY_COUNT / NEARBY_IDS
   note          IDT3           relevant: STMB0 = 1 and NEARBY_COUNT > 0
 
-group3 — SUIVI DES TRAVAUX  [v7] relevant: (IDT = '' or IDT_DUP_COUNT = 0)
+group3 — SUIVI DES TRAVAUX  relevant: (IDT = '' or IDT_DUP_COUNT = 0)
   select_one    STMB1          relevant: STMB0 = 2
   date          STMB3          relevant: STMB0 = 2
   integer       STMB4          relevant: STMB0 = 2
-  select_one    STMB5          STUV5 list — works state (7 choices)
+  select_one    STMB5          works state (7 choices)
   date          STMB11         relevant: STMB5 = 5
   date          STMB12         relevant: STMB5 = 6
   date          STMB13         relevant: STMB5 = 7
   calculate     STMB14
-  select_one    STMB15         STUV15 list — progress bracket (7 choices)
+  select_one    STMB15         progress bracket (7 choices)
   note          CONFSITE
   select_one    CONFSITE1      (4 choices)
   select_one    DATTROL        relevant: IDUV2 != 4  (6 choices)
@@ -205,7 +160,7 @@ group3 — SUIVI DES TRAVAUX  [v7] relevant: (IDT = '' or IDT_DUP_COUNT = 0)
     calculate   STMB18
     select_one  note4
 
-group3-2 — PHOTOS          [v7] relevant: (IDT = '' or IDT_DUP_COUNT = 0)
+group3-2 — PHOTOS          relevant: (IDT = '' or IDT_DUP_COUNT = 0)
   note          LUV7
   image         LUV7a
   image         LUV7b
@@ -213,68 +168,40 @@ group3-2 — PHOTOS          [v7] relevant: (IDT = '' or IDT_DUP_COUNT = 0)
   image         LUV7d
 ```
 
-### 4.2 Split keys — choice codes and labels
+`LUV6` is a `calculate` field holding a plain string, **not** a real `geopoint` — unlike the old
+per-survey forms, where the equivalent field genuinely was a geopoint (a `Struct` once cast).
+`transform_survey()`'s `level_7` handling (aliased from `LUV6` via `GEO_COLUMNS`) accounts for
+this: it only calls `.struct.json_encode()` when `level_7` is actually a `pl.Struct`, and leaves it
+as-is otherwise.
 
-`TYPE`: `1` = *CDR*, `2` = *HORS CDR*
+### 3.2 Split logic — `CDR` / `HCDR` / `TYPE_ACRONYM`
 
-`CDR`:
+`TYPE`: `1` = *CDR*, `2` = *HORS CDR*.
 
-| code | label |
-| --- | --- |
-| 1 | `Marché à bétail` |
-| 2 | `Parc de vaccination` |
-| 3 | `Point d'eau` |
-| 4 | `Unité vétérinaire` |
+`CDR` (drives the 4 legacy-table splits):
 
-`HCDR` (13 choices — all of them route to `infrastructures_hors_cdr`):
+| code | label | table |
+| --- | --- | --- |
+| 1 | `Marché à bétail` | `marches_a_betail` |
+| 2 | `Parc de vaccination` | `parcs_de_vaccination` |
+| 3 | `Point d'eau` | `points_d_eau` |
+| 4 | `Unité vétérinaire` | `unites_veterinaires` |
 
-| code | label |
-| --- | --- |
-| 1 | `Aires d'abattage` |
-| 2 | `Centres collecte/Mini Laiteries` |
-| 3 | `Etals de boucherie` |
-| 4 | `Magasins aliment betail` |
-| 5 | `Couloirs balisés (en Km)` |
-| 6 | `Quai d'embarquement/débarquement` |
-| 7 | `Aire de quarantaine` |
-| 8 | `Unité de tannerie` |
-| 9 | `Couloirs de transhumances sécuriés des zones conflictuelles` |
-| 10 | `Réalisation des bandes des pare feux dans les zones de hautes prairies d’herbes` |
-| 11 | `Sécurisation des aires de stationnement` |
-| 12 | `Construction des cordons pierreux dans les bas fonds` |
-| 13 | `Autre (à Préciser)` |
+`HCDR` (13 choices, all routing to `infrastructures_hors_cdr`; `HCDR` non-empty is the split rule
+— `TYPE` is not additionally checked): `Aires d'abattage`, `Centres collecte/Mini Laiteries`,
+`Etals de boucherie`, `Magasins aliment betail`, `Couloirs balisés (en Km)`, `Quai
+d'embarquement/débarquement`, `Aire de quarantaine`, `Unité de tannerie`, `Couloirs de
+transhumances sécuriés des zones conflictuelles`, `Réalisation des bandes des pare feux dans les
+zones de hautes prairies d'herbes`, `Sécurisation des aires de stationnement`, `Construction des
+cordons pierreux dans les bas fonds`, `Autre (à Préciser)`.
 
-> **Codes vs labels — verify, do not assume.** `openhexa.toolbox.kobo.utils.to_dataframe()` may
-> return either the raw choice code (`"2"`) or the French label (`"Parc de vaccination"`) for
-> `select_one` fields. Read the toolbox source in the installed environment to confirm, and write
-> the matcher to **accept both** (compare against code *and* label, after `strip()`), so the split
-> is robust either way. Note the label strings contain accents and a typographic apostrophe
-> (`Point d'eau`, `d’herbes`) — keep the files UTF-8 and copy the strings from this document
-> rather than retyping them.
+`openhexa.toolbox.kobo.utils.to_dataframe()` returns the choice **label**, not the raw code, for
+`select_one` fields (confirmed by reading `cast_select_one()` in the installed toolbox, and by
+inspecting real downloaded data). `split_consolidated()` in `surveys.py` (`CDR_INFRA_LIST`)
+matches on **either** code or label regardless, so it stays correct if that ever changes.
 
-`surveys.py` already contains the skeleton for this:
-
-```python
-CDR_INFRA_LIST = {
-    "marches_a_betail": "Marché à bétail",
-    "parcs_de_vaccination": "Parc de vaccination",
-    "points_d_eau": "Point d'eau",
-    "unites_veterinaires": "Unité vétérinaire",
-}
-HCDR_INFRA_LIST = set()   # unused placeholder — replace with the HCDR rule
-```
-
-Extend `CDR_INFRA_LIST` values to carry the code as well (e.g. `{"marches_a_betail": ("1", "Marché à
-bétail"), ...}`) or add a parallel code map — your choice, but keep one single source of truth for
-the mapping.
-
-`infrastructures_hors_cdr` = rows where `HCDR` is **not empty**: not null, not `""`, not whitespace.
-Do not additionally filter on `TYPE == 2` — `HCDR` non-empty is the rule Lionel specified. (You may
-`log_warning` on rows where the two disagree.)
-
-### 4.3 `TYPE_ACRONYM` — use it as a cross-check
-
-The form computes a category acronym that is also embedded in `INFRASTRUCTURE_ID` (via `BASE_ID`):
+`TYPE_ACRONYM` is a stable, accent-free, single-token cross-check embedded in `INFRASTRUCTURE_ID`
+via `BASE_ID`:
 
 ```
 CDR  1 → MB    2 → PV    3 → PE    4 → UV
@@ -282,545 +209,215 @@ HCDR 1 → AA    2 → CCML  3 → EB    4 → MAB   5 → CB    6 → QED   7 �
      8 → UT    9 → CTSZC 10 → RBPF 11 → SAS  12 → CCP  13 → AUTRE (fallback)
 ```
 
-The split rule stays the one Lionel specified (`CDR` / `HCDR`). But `TYPE_ACRONYM` is a stable,
-accent-free, single-token value, so use it as a **cross-check**: after splitting, assert that every
-row of `marches_a_betail` has `TYPE_ACRONYM == "MB"` (`PV`, `PE`, `UV` respectively) and that every
-row of `infrastructures_hors_cdr` has an HCDR acronym; `log_warning` on any mismatch. If you
-discover that `to_dataframe()` returns something unexpected for `CDR`/`HCDR`, `TYPE_ACRONYM` is the
-safe fallback split key — say so explicitly in your summary if you fall back to it.
+`split_consolidated()` asserts every row of each CDR table has the matching `TYPE_ACRONYM`, and
+every row of `infrastructures_hors_cdr` has an HCDR acronym, `log_warning`-ing (not failing) on any
+mismatch — this also catches historically migrated rows whose `TYPE_ACRONYM` was assigned by an
+older process and doesn't match this table (e.g. Mali submissions carrying `LHV`/`CU`, assigned
+during the `add_infrastructure_id` migration, not by this form).
+
+A row matching no split, or more than one, is `log_warning`'d with a sample of `_id` values rather
+than silently dropped or duplicated.
+
+### 3.3 Blocked / partial submissions
+
+When an enumerator types an identifier at `IDT` that already exists (`IDT_DUP_COUNT > 0`), the
+form skips ahead and the submission is saved with only `group1` + `group2` answered: no
+`LUV1..LUV6`, no `_geolocation`, no `INFRASTRUCTURE_ID`, no `STMB*`, no photos. These are
+data-entry rejects, not real infrastructures.
+
+`drop_blocked_submissions()` removes them — rows where `infrastructure_id` is null or blank —
+**before** dedup and before the split (`pipeline.py`'s `transform()` calls it on both the
+with-duplicates and deduped frames right after `transform_survey()`, before
+`_write_survey_outputs()` and before `split_consolidated()`). This must run before dedup: two
+blocked rows both have a null `infrastructure_id`, and `.unique(subset=...)` treats null == null,
+so without this filter they'd collapse into a single row and contaminate `concatenate_snapshots()`.
 
 ---
 
-## 5. BLOCKING PREREQUISITE — read the two reference sources
+## 4. Reconstructing the 4 legacy CDR tables
 
-**Do not invent, guess, or reconstruct-from-memory either the old column names or the field
-mapping.** Getting one wrong silently breaks a production web map. Both answers already exist on
-disk. Read them **before writing any code**, and if you cannot find one of them, **stop and ask
-Lionel** rather than shipping a plausible guess.
+`marches_a_betail`, `parcs_de_vaccination`, `points_d_eau`, `unites_veterinaires` must each expose
+**exactly the same column names they had before** the consolidation — including columns the
+consolidated survey no longer collects (kept as typed nulls) — plus whatever new columns the
+consolidated survey adds. Extra columns are fine (Geonode ignores what it doesn't reference);
+missing or renamed columns break the map.
 
-### 5.1 Source A — the 4 reference parquet files → *which* columns are mandatory
+The consolidated survey uses **one field name per concept** where the 4 old surveys each used
+their own prefixed names (location is `LUV1..LUV6` in the consolidated form, but was `LMB1..LMB6`
+in `marches_a_betail`, `LPE1..LPE5/LPE7` in `points_d_eau`, `LVAC1..LVAC6` in
+`parcs_de_vaccination`; likewise `STMB*` vs `STPE*`/`STVAC*`/`STUV*`).
 
-The `extract_surveys` pipeline folder contains the last-generated parquet file for each of the 4
-pre-existing surveys:
+### 4.1 `legacy_schema.py`
 
-```
-marches_a_betail.parquet
-parcs_de_vaccination.parquet
-points_d_eau.parquet
-unites_veterinaires.parquet
-```
+Two literal constants, read at import time only (never re-derived at run time):
 
-They sit in the same pipeline folder as `pipeline.py` / `surveys.py` (`.../extract_surveys`). If they
-are not directly beside the code, search the repository/workspace for them by name before concluding
-anything — check `data/kobo/surveys/` too, which is where the pipeline writes them at run time.
+- **`LEGACY_COLUMNS`**: `{table_name: {column_name: polars_dtype}}`, in original column order.
+  Derived from the last-generated reference parquet for each of the 4 tables (schema + order only,
+  via `pl.scan_parquet(...).collect_schema()`) — this is the mandatory, Geonode-facing column set.
+  One deliberate deviation: `infrastructure_id` is typed `pl.String` in every table, not the
+  `pl.UInt32` found in the reference parquets — see §7's case-collision rule for why.
+- **`COLUMN_RENAMES`**: `{table_name: {consolidated_field: legacy_field}}`. Derived from
+  `all_forms_cols_mapping` in the sibling `add_infrastructure_id` pipeline's `config.py` (read-only
+  input, never modified from here) — that dict maps legacy field name → consolidated field name;
+  the entries here are the inverse. Identity mappings and empty (no-consolidated-equivalent)
+  targets are dropped. `infrastructures_hors_cdr` has no `LEGACY_COLUMNS` entry (no predecessor
+  table) and an empty `COLUMN_RENAMES` entry — it keeps plain consolidated field names throughout.
 
-**The column set of each of these files is the mandatory column set of the corresponding output
-table.** Inspect them with polars — schema only, do not load the data:
+If either source needs re-deriving in the future (e.g. a 5th legacy table gets added), the method
+is: read the reference parquet's schema for the mandatory column set, invert
+`all_forms_cols_mapping` for the rename map, and cross-check the result against the reference
+parquet — do not reconstruct either from field-name prefixes or intuition, and do not assume the
+mapping is internally consistent with the parquet (one entry, for `unites_veterinaires`'s
+`IDUV2A`, was found to disagree with the real reference parquet's own casing and was dropped rather
+than applied).
 
-```python
-import polars as pl
-for name in ("marches_a_betail", "parcs_de_vaccination", "points_d_eau", "unites_veterinaires"):
-    print(name, dict(pl.scan_parquet(f"{name}.parquet").collect_schema()))
-```
+### 4.2 `conform_to_legacy_schema(df, name)`
 
-Use both the **names and the dtypes**, and preserve the **column order** as it appears in the file.
-Report the per-file column count in your summary so Lionel can sanity-check it.
+Three ordered steps:
 
-If a `geo/{name}.gpkg` is also present, cross-check against it — that is what actually reaches
-PostGIS and Geonode; flag any discrepancy instead of silently picking one.
+1. **Rename** — apply `COLUMN_RENAMES[name]`, only for keys actually present in `df`. If a rename
+   target already exists in `df` (collision), keep the existing column and `log_warning` rather
+   than overwrite.
+2. **Fill** — every column in `LEGACY_COLUMNS[name]` still missing after the rename becomes an
+   all-null column cast to its declared dtype. `log_info`s the filled list.
+3. **Order and keep** — legacy columns first, in their original reference-parquet order, then
+   consolidated-only extras. Never drops a column.
 
-### 5.2 Source B — `all_forms_cols_mapping` → *how* to rename consolidated fields
-
-A sibling pipeline, **`add_infrastructure_id`**, has a `config.py` containing:
-
-```python
-all_forms_cols_mapping
-```
-
-This dict defines how each field of the consolidated survey relates to the fields of the 4 existing
-surveys **plus** the new `infrastructures_hors_cdr` one. It is the authoritative answer to "what does
-consolidated field `X` need to be called in table `Y`" — use it to build the rename map, do not
-re-derive the correspondence yourself from field prefixes or labels.
-
-Locate it with a search (e.g. `rg -l all_forms_cols_mapping`, or glob for
-`**/add_infrastructure_id/config.py`); it is a sibling pipeline directory in the same workspace/repo.
-Read the whole dict, and note carefully:
-
-* which **direction** it maps (consolidated → legacy, or legacy → consolidated) and invert it if
-  needed — state which direction you found in your summary;
-* whether it is keyed per survey or flat, and whether one consolidated field maps to **different**
-  names in different surveys (expected — that is the whole point);
-* any consolidated field that maps to **nothing** for a given survey (leave it as a consolidated-only
-  extra column), and any legacy column with **no** consolidated source (that one becomes a typed-null
-  column);
-* whether it contains an entry for `infrastructures_hors_cdr`, and if so, apply it — that table's
-  columns are then *not* simply the raw consolidated names.
-
-**Reconcile A and B and report the reconciliation.** After applying the rename map to the
-consolidated columns, compare the result against each parquet's column set and report, per survey:
-how many mandatory columns are satisfied by a renamed consolidated field, how many have no source
-and become typed nulls, and how many consolidated-only extras are added. If a mandatory column is
-neither in the mapping nor in the consolidated survey, list it explicitly — do not quietly null it
-without saying so.
-
-### 5.3 Encode the result as constants
-
-Commit what you derived into `surveys.py` (or one new small module) as literal constants — the
-pipeline must not read the reference parquet files or the other pipeline's `config.py` at run time:
-
-```python
-# Column schema of each output table as it existed BEFORE the survey consolidation.
-# Source of truth for the Geonode layer configuration — DO NOT rename or remove entries.
-# Derived on <date> from <exact paths of the parquet files read>.
-LEGACY_COLUMNS: Dict[str, Dict[str, pl.DataType]] = {
-    "marches_a_betail": {
-        "DATE": pl.Date,
-        "INFRASTRUCTURE_ID": pl.String,
-        ...
-    },
-    ...
-}
-
-# Consolidated survey field -> historical field name, per output table.
-# Derived from all_forms_cols_mapping in <exact path of add_infrastructure_id/config.py>.
-COLUMN_RENAMES: Dict[str, Dict[str, str]] = {
-    "marches_a_betail": {"LUV1": "LMB1", "LUV2": "LMB2", ...},
-    ...
-}
-```
-
-If either source cannot be found: implement the mechanism, leave the constant with an explicit `TODO`
-and a single obvious place to paste the data, make the code `raise` on an empty schema rather than
-silently emitting a wrong-shaped table, and say so in your summary.
-
-`infrastructures_hors_cdr` has no historical table, so it has no `LEGACY_COLUMNS` entry — but it may
-still have a `COLUMN_RENAMES` entry if `all_forms_cols_mapping` defines one (§5.2).
+For columns present in both: cast to the legacy dtype if safe; if not (e.g. a `select_multiple`
+that casts to `List(String)` being asked to become legacy `String`), keep the source dtype and
+`log_warning` rather than raise — in practice this rarely fires, since `transform_survey()`
+already JSON-encodes struct/list columns to plain strings before the split happens. Post-condition:
+`set(LEGACY_COLUMNS[name]) <= set(out.columns)`, asserted in code.
 
 ---
 
-## 6. Implementation plan
+## 5. The 4 standalone legacy surveys
 
-### 6.1 `surveys.py`
-
-* Keep `SURVEYS` as the single-entry source list (the consolidated survey), or rename it to something
-  unambiguous like `SOURCE_SURVEY = ("aRZ43wRerX8pCdo4XrKw4n", "fiche_simplifiee_infrastructures")`
-  — if you rename, update every reference in both files.
-* Add a module-level list of the five output names, in a stable order:
-
-  ```python
-  OUTPUT_TABLES = [
-      "marches_a_betail",
-      "parcs_de_vaccination",
-      "points_d_eau",
-      "unites_veterinaires",
-      "infrastructures_hors_cdr",
-  ]
-  ```
-* `PROGRESS`, `STATE`, `PICTURES`, `GEO_COLUMNS` stay keyed by
-  `"fiche_simplifiee_infrastructures"` — they are applied by `transform_survey` **before** the split
-  (see 6.2). Their current values are already correct for the consolidated form: `STATE` → `STMB5`,
-  `PROGRESS` → `STMB15`, `PICTURES` → `LUV7a..LUV7d`, `GEO_COLUMNS` → `LUV1..LUV6` as
-  `level_2..level_7`. Delete the commented-out per-survey entries only if that keeps the diff clean;
-  leaving them is acceptable.
-* **New:** `split_consolidated(df: pl.DataFrame) -> Dict[str, pl.DataFrame]`
-  * returns one frame per entry of `OUTPUT_TABLES` (include empty frames rather than omitting keys);
-  * CDR splits match on code **or** label as described in §4.2;
-  * HCDR split = `HCDR` non-null and non-blank;
-  * `log_info` the row count of each split, and `log_warning` for rows that fall into **no** split
-    (e.g. `TYPE = 1` with empty `CDR`) with the count and a couple of `_id` values, so bad
-    submissions are visible without failing the run;
-  * a row must not land in two splits — assert/log if it does.
-* **New:** `conform_to_legacy_schema(df: pl.DataFrame, name: str) -> pl.DataFrame` — three ordered
-  steps, all driven by the §5 constants:
-  1. **Rename** — apply `COLUMN_RENAMES[name]` (from `all_forms_cols_mapping`, §5.2) to map
-     consolidated field names to that survey's historical names. Only rename keys that are actually
-     present in `df`; if a rename target collides with an existing column, `log_warning` and keep the
-     legacy-named one (do not silently overwrite). Do not rename anything for a survey with no entry.
-  2. **Fill** — for every column in `LEGACY_COLUMNS[name]` still missing after the rename: add it as
-     an all-null column **cast to the declared dtype** (`pl.lit(None).cast(dtype).alias(col)`).
-     `log_info` the list of columns filled this way — Lionel wants to know which questions the
-     consolidated form no longer collects.
-  3. **Order and keep** — legacy columns first, in the order they appear in the reference parquet,
-     then the consolidated-only columns. Never drop a column: extras are explicitly wanted.
-  * for columns present in both: keep the data; cast to the legacy dtype if that is safe, otherwise
-    keep the source dtype and `log_warning` the mismatch (a type change on a Geonode-referenced
-    column is worth surfacing);
-  * post-condition worth asserting in code: `set(LEGACY_COLUMNS[name]) <= set(out.columns)`;
-  * for a name with no legacy schema (`infrastructures_hors_cdr`), apply step 1 if a rename entry
-    exists and return; there is nothing to fill.
-* **New:** `drop_blocked_submissions(df: pl.DataFrame) -> pl.DataFrame` (name it as you like) —
-  removes the v7 partial/blocked submissions described in §4.0: rows where `INFRASTRUCTURE_ID` is
-  null or blank. `log_warning` the count dropped (and, if present, the `IDT` values, since those are
-  the duplicate identifiers the enumerators tried to reuse — that list is useful to Lionel).
-  Apply it **before** dedup and before the split.
-* `transform_survey`, `drop_duplicates`, `concatenate_snapshots`, `serialize`, `_add_url_prefix`:
-  keep their current behaviour, with two v7-driven robustness fixes:
-  * the `GEO_COLUMNS` aliasing loop must skip fields that are not in `df.columns` (`log_warning`
-    once per missing field) — Kobo omits columns that no submission ever answered, and v7 lets a
-    submission stop before `group2-1`;
-  * `pl.col("level_7").struct.json_encode()` must be guarded: only run it if `level_7` exists **and**
-    its dtype is a `pl.Struct` (otherwise leave / null it and log).
-
-  In `transform_survey` you may drop the now-unreachable
-  `if name in ("indicateurs_regionaux", "indicateurs_pays"): return df, df` early-exit; keep
-  everything else, including the `INFRASTRUCTURE_ID` / `DATE` dedup.
-
-### 6.2 `pipeline.py`
-
-* `SURVEYS` / `download`: unchanged in behaviour — one survey downloaded to
-  `raw/fiche_simplifiee_infrastructures.parquet`, fields metadata to
-  `metadata/fiche_simplifiee_infrastructures_fields.{parquet,xlsx}`.
-* `transform`: **currently contains a bare `xxx` placeholder at line 107 — that is where this work
-  goes, and it must not survive.** New shape:
-
-  1. read `raw/fiche_simplifiee_infrastructures.parquet`; if absent, `log_warning` and return as today;
-  2. call `surveys.transform_survey(survey, "fiche_simplifiee_infrastructures")` **once** on the full
-     consolidated frame, so `LATITUDE`/`LONGITUDE`, `validation_status`, `level_2..level_7`,
-     `STATE`/`PROGRESS`, struct/list serialization and picture URLs are computed once and identically
-     for all outputs;
-  2b. drop the v7 blocked/partial submissions (`drop_blocked_submissions`, §4.0) from both returned
-     frames, before splitting;
-  3. `surveys.split_consolidated(...)` on **both** returned frames (`df` with duplicates and
-     `df_no_duplicates`) — or split once and dedup per split; either is fine as long as the
-     `*_with_duplicates` / deduped distinction is preserved as it is today;
-  4. per output name: `conform_to_legacy_schema(...)`, then write exactly the artefacts the old loop
-     wrote, with the output name substituted for the survey name:
-     `surveys/{name}_with_duplicates.parquet`, `surveys/{name}.parquet`, `surveys/{name}.xlsx`,
-     `geo/{name}.gpkg`, `snapshots/{name}_snapshots.parquet`, plus `current_run.add_file_output(...)`
-     under `Environment.CLOUD_PIPELINE` and the closing `log_info`;
-  5. **do not** write any artefact named `fiche_simplifiee_infrastructures` under `surveys/`,
-     `geo/`, or `snapshots/`.
-* **Empty-split guard (important).** If a split is empty (or has no non-null geometry):
-  `log_warning` and **skip** writing its gpkg and skip its DB push — do not let an empty frame
-  replace a populated production table, and do not let `to_file()` / `concatenate_snapshots()` raise
-  on an empty frame (note `concatenate_snapshots` calls `df["DATE"].min().year`, which fails on an
-  empty or all-null column). One survey category having zero submissions in a country must not fail
-  the whole run.
-* `push`: iterate `OUTPUT_TABLES` instead of `SURVEYS`. Delete the
-  `if name in ("indicateurs_regionaux", "indicateurs_pays", "cultures_vivrieres")` branch — every
-  output now takes the PostGIS path (gpkg → `to_postgis(..., if_exists="replace")`) plus its
-  `{name}_snapshots` table. Keep `current_run.add_database_output(...)` and the log lines.
-* `push` — Geonode mirror: reduce `mapping` to the tables still produced:
-
-  ```python
-  mapping = {
-      "PRAPS2_Marches_a_Betail": "marches_a_betail",
-      "PRAPS2_Points_d_Eau": "points_d_eau",
-      "PRAPS2_Unites_Veterinaires": "unites_veterinaires",
-      "PRAPS2_Parcs_de_Vaccination": "parcs_de_vaccination",
-      # TODO(Lionel): mirror table name for the new HCDR layer, e.g.
-      # "PRAPS2_Infrastructures_Hors_CDR": "infrastructures_hors_cdr",
-  }
-  ```
-
-  Drop the four entries whose source tables are no longer produced
-  (`activites_generatrices_de_revenus`, `fourrage_cultive`, `gestion_durable_des_paysages`,
-  `sous_projets_innovants`) — the loop would otherwise copy stale data or fail on a missing table.
-  Wrap each mirror copy in `try/except` + `log_warning` so one bad layer cannot abort the task, and
-  reuse the single `engine` already created at the top of `push` rather than creating a second one.
-* `update_datasets`: trim `DATASETS` to the 4 surviving entries — keep their existing UIDs verbatim:
-
-  ```python
-  ("parcs_de_vaccination", "Parcs de vaccination", "parcs-de-vaccination-a6fbd3"),
-  ("unites_veterinaires",  "Unités vétérinaires",  "unites-veterinaires-05ee52"),
-  ("marches_a_betail",     "Marchés à Bétail",     "marches-a-betail-286942"),
-  ("points_d_eau",         "Points d'Eau",         "points-d-eau-0935a6"),
-  # TODO(Lionel): create the OpenHexa dataset and paste its UID here
-  # ("infrastructures_hors_cdr", "Infrastructures Hors CDR", "TODO_DATASET_UID"),
-  ```
-
-  Skip any entry whose UID is a placeholder (`log_info` and `continue`) so an unfilled TODO cannot
-  crash the task.
-* `update_datasets` — fields metadata: the per-survey `metadata/{survey_name}_fields.xlsx` no longer
-  exists; there is now one `metadata/fiche_simplifiee_infrastructures_fields.xlsx`. Attach that
-  single consolidated file to every dataset version (the existing `[p for p in src_files if
-  p.exists()]` filter means an untouched code path would silently stop shipping field metadata —
-  that would be a silent regression, so handle it explicitly). Note `add_file(path, name)` takes an
-  explicit name, so the file can be attached under a stable name.
-
----
-
-## 7. Explicit do-nots
-
-* Do not rename or drop any column of the 4 existing output tables. Additive only.
-* Do not change the output table names, the file/directory layout under `data/kobo/`, the pipeline
-  name/id `extract-surveys`, or its 3 parameters (`output_dir`, `push_to_db`, `overwrite`).
-* Do not change the existing dataset UIDs or the `PRAPS2_*` mirror table names.
-* Do not reintroduce the 7 out-of-scope surveys anywhere, including in `DATASETS`, `PICTURES`,
-  `GEO_COLUMNS`, and the mirror mapping.
-* Do not add runtime database introspection, new dependencies, or an alembic-style migration. The
-  pipeline must not read the reference parquet files or import `add_infrastructure_id.config` at run
-  time — those are design-time inputs, transcribed into constants.
-* Do not re-derive the consolidated→legacy field correspondence from prefixes, labels, or intuition
-  when `all_forms_cols_mapping` (§5.2) already answers it, and do not edit that dict.
-* Do not uncomment or "restore" the duplicate-detection block in `surveys.py`. **Superseded by
-  §10.7 — this block has since been removed entirely, not restored.**
-* Do not leave the `xxx` placeholder, or any `print()` / debug leftovers.
-* Do not reformat or reorder code you did not need to touch — keep the diff reviewable.
-
----
-
-## 8. Verification before you report done
-
-There is no Kobo credential and no warehouse in the dev environment, so verify offline:
-
-1. `python -m py_compile pipeline.py surveys.py`, and `ruff check` / `ruff format --diff` if ruff is
-   available (match the existing style: 88-col, double quotes).
-2. Build a **synthetic fixture** — a small polars frame with the consolidated survey's columns
-   (§4.1) plus the Kobo system columns the code touches (`_validation_status` struct with `label`,
-   `_geolocation` list of 2 floats, `_id`), covering:
-   * one row per `CDR` value, and two rows with non-empty `HCDR`;
-   * one row with `TYPE = 1` and empty `CDR` (falls into no split);
-   * one duplicate `INFRASTRUCTURE_ID` with two different `DATE`s;
-   * one row with null `_geolocation`;
-   * **[v7] one blocked/partial submission**: `IDT` filled, `IDT_DUP_COUNT > 0`, and everything from
-     `group2-1` onwards null — including null `INFRASTRUCTURE_ID`, null `LUV6`/`level_7` and null
-     `_geolocation`;
-   * **[v7] a variant frame with the `LUV*` / `STMB*` / `LUV7*` columns absent entirely**, to prove
-     the `df.columns` guards work (this is what a fresh form with few submissions looks like).
-
-   Run `transform_survey` → `drop_blocked_submissions` → `split_consolidated` →
-   `conform_to_legacy_schema` on it and assert:
-   * the blocked submission is dropped, with a warning, and never reaches a split;
-   * every split has the expected row count and no row appears in two splits;
-   * `TYPE_ACRONYM` is consistent with the split each row landed in (§4.3);
-   * for each of the 4 legacy tables, `set(LEGACY_COLUMNS[name]) <= set(result.columns)` and the
-     legacy columns come first in their original order — assert against the column set read straight
-     from the reference parquet (§5.1), not against a retyped copy of it;
-   * the renames from `COLUMN_RENAMES` actually happened, and **carried their data**: pick two or
-     three renamed fields per survey and assert the values survived the rename (a rename that
-     produces a correctly-named all-null column is the failure mode to catch here);
-   * columns absent from the consolidated survey exist and are all-null with the declared dtype;
-   * consolidated-only columns (`TYPE`, `HCDR`, `CONFSITE1`, `DATTROL`, `IGPE0/1/2`, `STMB16/17/18`,
-     `NEARBY_*`, `NEARBY_MSG`, `IDT_DUP_COUNT`, `BASE_ID`, `DUP_COUNT`, `TYPE_ACRONYM`, …) are
-     present;
-   * dedup kept the most recent `DATE` per `INFRASTRUCTURE_ID`;
-   * an empty split produces warnings and no exception, and writes no gpkg;
-   * the missing-columns variant runs end to end without raising.
-
-   Keep this as a throwaway script under `/tmp` unless the repo already has a test suite — §3.4
-   limits the scope to the two files.
-3. Re-read your own diff and check it against §7 line by line.
-4. In your final summary, state: the exact paths of the 4 reference parquet files and the
-   `add_infrastructure_id/config.py` you read (§5), each file's column count, the direction
-   `all_forms_cols_mapping` maps in, the per-survey reconciliation figures required by §5.2
-   (renamed / null-filled / extra), whether Kobo returns choice codes or labels and how you verified
-   it, how many blocked/partial submissions your filter would drop if you were able to inspect real
-   data, every `TODO` placeholder you left and what Lionel must paste into it, and anything you had
-   to assume.
-
-## 9. Definition of done
-
-* `transform` consumes only `raw/fiche_simplifiee_infrastructures.parquet` and produces the 5 output
-  sets; the `xxx` placeholder is gone.
-* The 4 legacy tables are column-name-compatible with their pre-consolidation versions — every column
-  of the corresponding reference parquet (§5.1) is present — plus the new columns.
-* Consolidated fields are renamed per `all_forms_cols_mapping` (§5.2), with data intact, and the
-  reconciliation between the two sources is reported rather than assumed.
-* `infrastructures_hors_cdr` is produced end to end, with clearly marked placeholders for its
-  dataset UID and Geonode mirror name, and no crash while they are unfilled.
-* Nothing referencing the 7 out-of-scope surveys remains in the executed code paths.
-* An empty or geometry-less split logs a warning instead of failing the run or wiping a table.
-* v7 blocked/partial submissions (null `INFRASTRUCTURE_ID`) are dropped with a warning and never
-  reach an output table, and missing `LUV*` / `level_7` columns cannot raise.
-
----
-
-## 10. Amendments after initial implementation (2026-08-05)
-
-§1–§9 above is the *original* spec, exactly as given, and is left unedited for the historical
-record. The pipeline was implemented against it, then run for real and adjusted based on what
-that surfaced. Where this section and §1–§9 disagree, **this section wins.** Each entry below is
-labeled as either an explicit instruction from Lionel, or a correction forced by something the
-original spec's sources (§5) turned out not to fully account for.
-
-### 10.1 `infrastructure_id` / `INFRASTRUCTURE_ID` case collision — Lionel's instruction
-
-Running the pipeline raised `pyogrio.errors.FieldError: Error adding field 'INFRASTRUCTURE_ID' to
-layer` on every `geo/{name}.gpkg` write. Root cause: each of the 4 legacy tables carries a dead,
-always-null `infrastructure_id` column (lowercase, `UInt32` — a leftover row index from the
-long-disabled `identify_duplicates()`), alongside the real, populated `INFRASTRUCTURE_ID`
-(uppercase, `String`) inherited from the consolidated survey. GDAL's GPKG driver rejects two field
-names that differ only by case — reproduced directly, outside this pipeline, with a 2-column
-GeoDataFrame.
-
-Lionel: *"I would like that the column gets renamed in lower case in the pipeline such that the
-lower case version is used in all tables and gpkg/postGIS files."*
-
-Implemented in `transform_survey()` (`surveys.py`): `INFRASTRUCTURE_ID` is renamed to
-`infrastructure_id` immediately after computing `LATITUDE`/`LONGITUDE`, before anything else
-touches it. `drop_duplicates()`'s internal call (inside `transform_survey`) and
-`concatenate_snapshots()`'s call (in `pipeline.py`) now key on `infrastructure_id` (lowercase)
-throughout. `LEGACY_COLUMNS["infrastructure_id"]` in `legacy_schema.py` is typed `pl.String` for
-all 4 tables, **not** the `pl.UInt32` found in the raw reference parquet — a deliberate, documented
-deviation from §5.3's literal-transcription rule, since there is now one identifier column instead
-of two.
-
-### 10.2 One stale entry in `all_forms_cols_mapping` — found during verification, not an instruction
-
-Per §5.2, `all_forms_cols_mapping` is applied as-is, without re-deriving the correspondence. One
-entry doesn't survive contact with the real reference parquet: it maps consolidated `IDUV2A` →
-legacy `IDUV2a` (lowercase `a`) for `unites_veterinaires`, but `unites_veterinaires.parquet`'s real
-column is `IDUV2A` (uppercase — already an identity, no rename needed). Applying the mapping
-literally reintroduced the exact case collision from §10.1. Per §5.2's own principle ("flag any
-discrepancy instead of silently picking one"), Source A (the reference parquet) wins: that one
-`COLUMN_RENAMES["unites_veterinaires"]` entry was removed. Documented inline in `legacy_schema.py`.
-
-### 10.3 `infrastructures_hors_cdr`'s `COLUMN_RENAMES` reverted to empty — found during verification, not an instruction
-
-§5.2/§5.3 permitted (did not mandate) applying `all_forms_cols_mapping`'s Mali-pilot-derived entry
-for `infrastructures_hors_cdr` (e.g. `DATE` → `_1_Date_de_la_collecte`, from the
-`FICHE AIRE D'ABATTAGE, ETAL, MAGASINS, LATRINES_MALI` block). It was applied, then reverted:
-renaming `DATE` away broke `concatenate_snapshots()`, which hard-codes `column_date="DATE"` for
-every output table (`polars.exceptions.ColumnNotFoundError: "DATE" not found`). Unlike the 4
-legacy tables, `infrastructures_hors_cdr` has no Geonode-facing predecessor that needs those
-Mali-specific names, so there was no compatibility benefit to weigh against the breakage.
-`COLUMN_RENAMES["infrastructures_hors_cdr"]` is now `{}`; the table keeps plain consolidated field
-names.
-
-### 10.4 The 4 non-CDR legacy surveys are back in scope — Lionel's instruction, supersedes §2 and §7
-
-Lionel: *"I now want to re-adapt the code to preserve the other legacy source tables
 `fourrage_cultive`, `sous_projets_innovants`, `gestion_durable_des_paysages`,
-`activites_generatrices_de_revenus`. Please adapt the pipeline such that it also produces the same
-outputs as before for these surveys."*
+`activites_generatrices_de_revenus` are unrelated to the consolidation: they were never merged into
+`fiche_simplifiee_infrastructures`, are downloaded and transformed independently
+(`surveys.LEGACY_SURVEYS` in `pipeline.py`), and never go through
+`split_consolidated`/`conform_to_legacy_schema`/`drop_blocked_submissions` — those are
+consolidated-survey-specific. `PICTURES` and `GEO_COLUMNS` in `surveys.py` have entries for all 4,
+keyed by survey name, applied by the same `transform_survey()` every survey goes through.
 
-This **supersedes** §2's "7 other historical surveys ... are out of scope" and §7's "do not
-reintroduce the 7 out-of-scope surveys anywhere" — for these 4 specifically.
-`indicateurs_regionaux`, `indicateurs_pays`, and `cultures_vivrieres` were not named and remain out
-of scope, still commented out everywhere.
+**They have no Kobo-native infrastructure identifier** — unlike the consolidated survey, which
+computes `INFRASTRUCTURE_ID` inside the form itself. For these 4 (and only these 4,
+`SURVEYS_WITH_GEO_ASSIGNED_ID` in `surveys.py`), `transform_survey()` calls `identify_duplicates()`
+to assign one based on geographic proximity: points within `min_distance` km of each other
+(rounded-coordinate bucketing, then pairwise haversine distance within each bucket) share an ID,
+via `with_row_index()` + `group_pairs()`/`reassign_ids()`. This runs before the internal
+`drop_duplicates()` call, which then dedups on the ID it just produced. It is **not** applied to
+`fiche_simplifiee_infrastructures` — that survey's `INFRASTRUCTURE_ID` (renamed to
+`infrastructure_id`, see §7) already comes from Kobo and needs no reassignment.
 
-These 4 never merged into the consolidated survey — they are independent Kobo surveys, downloaded,
-transformed and pushed exactly as before the consolidation work, entirely bypassing
-`split_consolidated`/`conform_to_legacy_schema`/`drop_blocked_submissions` (those stay
-consolidated-survey-only concerns). Implementation:
+`drop_duplicates()` and `concatenate_snapshots()` both degrade gracefully rather than raise when
+`infrastructure_id` is absent for a survey (skip dedup / fall back to Kobo's own `_id`) — this
+matters only as a defensive fallback now that these 4 always get one via `identify_duplicates()`.
 
-* `pipeline.py`: `SURVEYS` split into `LEGACY_SURVEYS` (these 4, uncommented with their original
-  UIDs) + `CONSOLIDATED_SURVEY`; `download()` needed no change since it already just iterates
-  `SURVEYS`.
-* `transform()`: a second loop over `LEGACY_SURVEYS` runs the plain pre-consolidation logic
-  (`transform_survey` → write outputs), sharing the write logic with the consolidated-splits loop
-  via a new `_write_survey_outputs()` helper (avoids duplicating the parquet/xlsx/gpkg/snapshots
-  block across the two loops).
-* `surveys.py`: uncommented the pre-existing (already-correct) `PICTURES` and `GEO_COLUMNS`
-  entries for these 4 names. `PROGRESS`/`STATE` had no entries for them and still don't — those
-  are CDR-form-specific fields these surveys never had.
-* `push()` / `update_datasets()`: their `PRAPS2_*` mirror entries and dataset entries (original
-  names/UIDs) restored. Fields-metadata attachment in `update_datasets()` is now survey-aware: the
-  5 consolidated-derived tables share one `fiche_simplifiee_infrastructures_fields.xlsx`; these 4
-  keep their own per-survey `{name}_fields.xlsx`, since they're still downloaded independently.
-* Real bug found by testing against archived raw data for all 4: `drop_duplicates()` and
-  `concatenate_snapshots()` both hard-coded `infrastructure_id` as the dedup key, but that column
-  only ever existed for surveys that went through the now-disabled `identify_duplicates()` — these
-  4 never did. Both functions now degrade gracefully (skip dedup / fall back to Kobo's own `_id`)
-  instead of raising `ColumnNotFoundError` when the column is absent.
+---
 
-### 10.5 `_tags` / `_notes` on every table except `parcs_de_vaccination` — Lionel's instruction
+## 6. What each task does
 
-Lionel: *"The GeoServer layers config identify two additional fields `_tags` and `_notes` supposed
-to be present in all final tables except `PRAPS2_Parcs_de_Vaccination`. Verify that these fields
-have not been dropped by error during the transformation process and if not, add these two extra
-fields with missing values in each table relating to these surveys."*
+- **`download`**: for every entry of `SURVEYS` (`LEGACY_SURVEYS` + `CONSOLIDATED_SURVEY`),
+  downloads survey data to `raw/{name}.parquet` and field metadata to
+  `metadata/{name}_fields.{parquet,xlsx}`.
+- **`transform`**: for each of the 4 `LEGACY_SURVEYS`, runs `transform_survey()` and writes its
+  outputs directly. For the consolidated survey: runs `transform_survey()` once, drops blocked
+  submissions, writes its own outputs (§7), then `split_consolidated()` + `conform_to_legacy_schema()`
+  per entry of `OUTPUT_TABLES`, writing each split's outputs. All writes go through
+  `_write_survey_outputs()`, which also fills `_tags`/`_notes` (§7) and guards empty/no-geometry
+  splits: an empty split, or one with no valid geometry, `log_warning`s and skips its gpkg/snapshots
+  write rather than failing the run or overwriting a populated table with nothing.
+- **`push`**: PostGIS-pushes every one of the 10 tables' `.gpkg` (plus its `_snapshots` table where
+  present), then mirrors 9 of them (all but `fiche_simplifiee_infrastructures`) into `PRAPS2_*`
+  tables for Geonode, each wrapped in `try`/`except` so one bad mirror can't abort the task.
+- **`update_datasets`**: publishes an OpenHexa dataset per entry of `DATASETS` (9 tables, not
+  `fiche_simplifiee_infrastructures`). The 5 consolidated-derived tables share one
+  `metadata/fiche_simplifiee_infrastructures_fields.xlsx`; the 4 standalone legacy surveys keep
+  their own per-survey fields file, since they're still downloaded independently. An entry whose
+  `dataset_uid` starts with `"TODO"` is skipped with `log_info` rather than crashing the task — the
+  mechanism for wiring up a new table's dataset before its UID exists.
 
-Verified: not a transformation bug. `_tags`/`_notes` are absent from the *raw* Kobo download
-itself, for every survey (consolidated and all 4 legacy) — `to_dataframe()` only emits a column
-for a key present in at least one submission, and no submission in the current data has ever been
-tagged or annotated via the Kobo UI. Confirmed this isn't a schema-inference-truncation artifact
-either (`to_dataframe()` already runs with `infer_schema_length=None`, patched into the installed
-`openhexa.toolbox.kobo.utils` in an earlier session — that patch lives in `site-packages`, not this
-repo, and won't survive an environment rebuild). Since there is no source data to carry, both are
-added as null (`pl.String`) at the one point every output table passes through regardless of
-origin: `_write_survey_outputs()` in `pipeline.py`, via `GEONODE_EXTRA_COLUMNS = ["_tags",
-"_notes"]` and `TABLES_WITHOUT_GEONODE_EXTRA_COLUMNS = {"parcs_de_vaccination"}`.
+---
 
-### 10.6 `surveys.py`'s own `SURVEYS` list had stale UIDs — Lionel's instruction
+## 7. Cross-cutting rules
 
-Lionel noticed `surveys.py`'s `SURVEYS` list still commented out the 4 surveys re-added in §10.4.
-That list is dead code (see §10.7 — nothing calls it or the `download_surveys()` function that
-used it; `pipeline.py` has its own `SURVEYS`/`LEGACY_SURVEYS`/`CONSOLIDATED_SURVEY` that actually
-drives `download()`), but it was still misleading to read. Its UIDs for these 4 surveys also
-didn't match the ones actually restored in `pipeline.py`'s `LEGACY_SURVEYS` (the real, verified
-ones). Uncommented and corrected to match `pipeline.py` exactly, rather than uncommenting stale
-values.
+- **Never let two output columns differ only by case.** GDAL's GeoPackage driver rejects it
+  outright (`FieldError: Error adding field '...' to layer`) — confirmed by reproducing it directly
+  with a 2-column GeoDataFrame. This is why `transform_survey()` renames the consolidated survey's
+  `INFRASTRUCTURE_ID` to lowercase `infrastructure_id` immediately after computing
+  `LATITUDE`/`LONGITUDE` (before anything else touches it), rather than carrying both the legacy
+  tables' dead `infrastructure_id` placeholder and the consolidated survey's real
+  `INFRASTRUCTURE_ID` as separate columns. Any future rename touching an existing column name
+  should be checked against this.
+- **`fiche_simplifiee_infrastructures` gets the same file + DB-push treatment as every other
+  table**, but deliberately **no OpenHexa dataset and no Geonode mirror** — it's an intermediate
+  form with no historical `PRAPS2_*` layer, and publishing it as its own dataset/layer would be
+  redundant with the 5 tables already split out of it.
+- **`_tags`/`_notes`**: Geonode's layer config expects these two Kobo system columns on every
+  table except `parcs_de_vaccination` (that table's submission history never included a tagged or
+  annotated row, so the column never existed for it — not a bug). Both are Kobo system columns
+  that `to_dataframe()` only emits when at least one submission in the batch has one set; when
+  absent, `_write_survey_outputs()` adds them as null `pl.String` for every table except
+  `parcs_de_vaccination` (`GEONODE_EXTRA_COLUMNS` / `TABLES_WITHOUT_GEONODE_EXTRA_COLUMNS`).
+- **Never rename or drop a column of the 4 legacy CDR tables or `infrastructures_hors_cdr`** once
+  it's in their output — additive only. Don't change output table names, the `data/kobo/`
+  directory layout, the pipeline id `extract-surveys`, its 3 parameters
+  (`output_dir`/`push_to_db`/`overwrite`), existing dataset UIDs, or `PRAPS2_*` mirror table names.
+- **Don't add runtime database introspection or read the reference parquets / the
+  `add_infrastructure_id` pipeline's `config.py` at pipeline run time** — §4.1's constants are the
+  encoded result; re-derive them (by hand, reading the actual sources) only if the underlying data
+  changes, never algorithmically from prefixes or labels.
+- **Don't modify `add_infrastructure_id`** — it's read-only input to this pipeline (`config.py`'s
+  `all_forms_cols_mapping`), owned by a sibling pipeline.
 
-### 10.7 Dead-code removal — Lionel's instruction
+---
 
-Lionel asked to remove all dead code in the pipeline. Audited with `pyflakes` plus manual
-call-site tracing across both files. Removed:
+## 8. Out of scope
 
-* `surveys.py`'s `download_surveys()` function and its module-level `SURVEYS` list (from §10.6) —
-  unreachable: nothing called `download_surveys()`, and nothing but that function read `SURVEYS`.
-  `pipeline.py`'s `download()` task has always used its own separate `SURVEYS` constant.
-* The entire commented-out `haversine()` / `group_pairs()` / `reassign_ids()` /
-  `identify_duplicates()` block, and the leftover commented call-site inside `transform_survey()`
-  that invoked it.
-* The imports that existed only to support that block: `itertools.combinations`, `math.{asin, cos,
-  radians, sin, sqrt}`, and `typing.{List, Sequence, Tuple}` (`typing.Dict` is still used
-  elsewhere and was kept).
+`indicateurs_regionaux`, `indicateurs_pays`, `cultures_vivrieres` are not downloaded, transformed,
+pushed, or published by this pipeline. Their old UIDs remain as commented-out entries in
+`pipeline.py`'s `LEGACY_SURVEYS` for reference, not for reactivation.
 
-This explicitly **supersedes** §3.4's "leave the commented-out duplicate-detection code exactly
-where it is" and §7's "do not uncomment or restore the duplicate-detection block" — both are
-struck through above with a pointer here. The block is not restored or reactivated, it is deleted;
-if it's ever needed again, it exists in git history prior to this change.
+---
 
-### 10.8 `identify_duplicates()` restored, but only for the 4 legacy surveys — Lionel's instruction, partially reverses §10.7
+## 9. Downstream dependents
 
-Lionel: *"I notice that the infrastructure_id is no longer created for the surveys
-`fourrage_cultive`, `sous_projets_innovants`, `gestion_durable_des_paysages`, and
-`activites_generatrices_de_revenus`. For these surveys, I want to revert back to the previous
-configuration which calculated an infrastructure_id using information on the geolocation of the
-point to figure out whether it should have the same infrastructure_id as another point. ... implement it
-only for these 4 (no need to apply it to the fiche_simplifiee_infrastructures survey as there the
-infrastructure_id already exists as it is generated within Kobo)."*
+`sync_attachments` (sibling pipeline) reads `surveys/{name}.parquet` for each name in its own
+`SURVEYS` list and re-uploads any photo attachments found in `_attachments` to GCS. It currently
+lists `fiche_simplifiee_infrastructures` + the 4 standalone legacy surveys — not the 4 split CDR
+tables or `infrastructures_hors_cdr`, since their rows are already covered by
+`fiche_simplifiee_infrastructures` itself (splitting doesn't duplicate or lose any row). One gotcha
+worth knowing if that pipeline is touched again: most `fiche_simplifiee_infrastructures`
+submissions have zero photo attachments (unlike the old dedicated forms, where a photo was
+effectively always present) — `serialize()` here represents an empty attachments list as `null`,
+not `"[]"`, so any code reading that column must guard for `None` before `json.loads`-ing it.
 
-§10.7 deleted `identify_duplicates()` (and `haversine()`/`group_pairs()`/`reassign_ids()`) as dead
-code without realizing it was the *only* source of `infrastructure_id` for these 4 surveys — after
-§10.4 restored them, they had no Kobo-native identifier and no other code path assigned one
-(confirmed: `drop_duplicates()`/`concatenate_snapshots()`'s §10.4 fallback logic was masking the
-gap by skipping dedup entirely / falling back to `_id`, silently, rather than raising).
+---
 
-Restored verbatim from the pre-§10.7 version of `surveys.py` (all 4 functions, and the imports
-that exist only to support them: `itertools.combinations`, `math.{asin, cos, radians, sin, sqrt}`,
-`typing.{List, Sequence, Tuple}`). Unlike before, the call site in `transform_survey()` is now
-conditional — a new `SURVEYS_WITH_GEO_ASSIGNED_ID` set (the 4 legacy survey names) — instead of
-running unconditionally for every survey as it originally did. `fiche_simplifiee_infrastructures`
-is deliberately excluded: its `INFRASTRUCTURE_ID` is computed inside the Kobo form itself (§4.1)
-and is already folded into `infrastructure_id` earlier in `transform_survey()` per §10.1.
+## 10. Verification approach
 
-Verified against the real archived raw data for all 4 surveys: `infrastructure_id` is populated
-(`UInt32`, matching the dtype found in the historical reference parquets), submissions within 1km
-of each other now correctly share an ID (e.g. `fourrage_cultive`: 444 raw submissions → 275
-distinct geo-assigned IDs), and `drop_duplicates()`'s existing fallback from §10.4 is simply never
-triggered for these 4 anymore since the column now exists. The consolidated survey's `String`-typed
-`infrastructure_id` is confirmed untouched.
+No Kobo credentials or warehouse access in the dev sandbox — verify offline:
 
-§10.7's "the block is not restored or reactivated, it is deleted" is now inaccurate for these 4
-surveys specifically — it is restored, deliberately, exactly where §10.7 said it wouldn't be. Read
-§10.7 and this entry together, not §10.7 alone.
-
-### 10.9 `fiche_simplifiee_infrastructures` gets files + DB output after all — Lionel's instruction, supersedes §3 decision 2
-
-Lionel noticed `push()` logged `"infrastructures_hors_cdr: no gpkg file, skipping database
-push"` and asked why — that turned out to be a stale message from an earlier run, not a bug (the
-gpkg existed and was valid by the time of the actual check). In the course of that he asked:
-*"also make sure that the equivalent outputs get generated also for the fiche_simplifiee_
-infrastructures data."*
-
-Asked which parts of "equivalent outputs" he meant — file artefacts + DB push only, or also an
-OpenHexa dataset entry, or also a Geonode `PRAPS2_*` mirror table — Lionel confirmed **files + DB
-push only**. This **supersedes** §3's decision 2 ("No `fiche_simplifiee_infrastructures` output"),
-but only partially: it still gets no dataset entry and no Geonode mirror, since it's an
-intermediate form with no historical `PRAPS2_*` layer, and publishing it as its own dataset/layer
-would be redundant with the 5 tables already split out of it.
-
-Implementation: in `transform()`, right after `drop_blocked_submissions` and before
-`split_consolidated`, `_write_survey_outputs(consolidated_name, df, df_no_duplicates, output_dir)`
-writes the same 5 artefacts (`surveys/{name}_with_duplicates.parquet`, `surveys/{name}.parquet`,
-`surveys/{name}.xlsx`, `geo/{name}.gpkg`, `snapshots/{name}_snapshots.parquet`) for the full
-consolidated frame that every split gets — reusing the same helper means the same empty/
-no-geometry guards apply automatically. In `push()`, `consolidated_name` is appended to the list
-of names pushed to PostGIS (table + `_snapshots` table); `DATASETS` and the Geonode `mapping` in
-`push()` are deliberately left untouched.
-
-Verified against the real downloaded consolidated survey (1203 raw rows, 1 blocked submission
-dropped, 786 valid geometries): all 5 file artefacts write correctly.
+1. `python -m py_compile pipeline.py surveys.py legacy_schema.py`; `pyflakes` (or `ruff check` /
+   `ruff format --diff` if available) on all three, and a check for any remaining reference to the
+   3 out-of-scope surveys (§8) in executed code paths.
+2. A synthetic fixture covering: one row per `CDR` value, non-empty-`HCDR` rows, a row matching no
+   split, a duplicate `infrastructure_id` with two different `DATE`s, a null `_geolocation` row, a
+   blocked/partial submission, and a variant frame with the `LUV*`/`STMB*`/`LUV7*` columns absent
+   entirely (what a low-submission-count batch looks like) — run through
+   `transform_survey → drop_blocked_submissions → split_consolidated → conform_to_legacy_schema`
+   and assert: the blocked row is dropped and never reaches a split; every split has the expected
+   row count with no row in two splits; `TYPE_ACRONYM` is consistent per split; each legacy table's
+   mandatory columns are present, in original order, matching the real reference parquet (not a
+   retyped copy of it); renamed fields carried real data (not just correctly-named nulls); missing
+   legacy columns are all-null with the declared dtype; consolidated-only extras are present; dedup
+   kept the most recent `DATE`; an empty split warns without raising and writes no gpkg; the
+   missing-columns variant runs end to end.
+3. Wherever feasible, re-run the same steps against the real last-downloaded raw parquet for every
+   survey (further exercises real-world data shape that a synthetic fixture won't always capture —
+   this is how the GDAL case-collision and the `_attachments`-is-`null` issues were actually found).
+4. Keep verification scripts as throwaways under `/tmp`, not part of the repo — this pipeline has
+   no test suite, and scope is `pipeline.py`/`surveys.py`/`legacy_schema.py` only; no opportunistic
+   refactors or reformatting of code that didn't need to change.

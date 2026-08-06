@@ -618,7 +618,7 @@ COLUMN_RENAMES: Dict[str, Dict[str, str]] = {
         # NOT 'IDUV2A': 'IDUV2a' -- all_forms_cols_mapping spells the old unites_veterinaires
         # field "IDUV2a" (lowercase a), but the real reference parquet's column is "IDUV2A"
         # (uppercase), identical to the consolidated name. Source A (the parquet) wins per
-        # CLAUDE.md §5.1; that rename entry is a stale/typo'd mapping and applying it both
+        # CLAUDE.md §4.1; that rename entry is a stale/typo'd mapping and applying it both
         # loses the real data under a wrongly-cased column and recreates the exact
         # GDAL case-collision this file exists to avoid.
         'LOCALISATION_DE_L_INFRASTRUCTURE': 'LOCALISATION_DE_L_UNITE_VETERINAIRE',

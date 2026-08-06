@@ -20,7 +20,7 @@ OUTPUT_TABLES = [
 ]
 
 # CDR code/label pairs used to split the consolidated survey; matched on either since
-# to_dataframe() may return the raw choice code or its french label (see CLAUDE.md §4.2).
+# to_dataframe() may return the raw choice code or its french label (see CLAUDE.md §3.2).
 CDR_INFRA_LIST = {
     "marches_a_betail": ("1", "Marché à bétail"),
     "parcs_de_vaccination": ("2", "Parc de vaccination"),
@@ -28,7 +28,7 @@ CDR_INFRA_LIST = {
     "unites_veterinaires": ("4", "Unité vétérinaire"),
 }
 
-# TYPE_ACRONYM is a stable, accent-free cross-check for the CDR/HCDR-based split (§4.3).
+# TYPE_ACRONYM is a stable, accent-free cross-check for the CDR/HCDR-based split (§3.2).
 TYPE_ACRONYM_BY_CDR_TABLE = {
     "marches_a_betail": "MB",
     "parcs_de_vaccination": "PV",
@@ -462,7 +462,7 @@ def transform_survey(df: pl.DataFrame, name: str):
 def split_consolidated(df: pl.DataFrame) -> Dict[str, pl.DataFrame]:
     """Split the consolidated survey dataframe into the 5 output tables.
 
-    The 4 CDR-based tables are matched on `CDR` (code or label, per CLAUDE.md §4.2); the
+    The 4 CDR-based tables are matched on `CDR` (code or label, per CLAUDE.md §3.2); the
     5th, `infrastructures_hors_cdr`, is every row where `HCDR` is non-empty. Returns all
     entries of OUTPUT_TABLES, including empty frames.
     """

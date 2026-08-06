@@ -640,7 +640,7 @@ name_label_mapping = {
     "LUV7d": "39d) Prendre la photo de l’infrastructure",
 }
 
-duplicates_manual_correction_mapping = {  # based on feedbacks from countries
+duplicates_manual_correction_mapping = {  # based on feedbacks from countries (see --> https://docs.google.com/spreadsheets/d/1C_fjS4LL-H2NP55VCRVyMFl9EfCeLFsG/edit?gid=343881162#gid=343881162)
     "f3adb1e2-62e6-4777-be00-d828aa523d70": "131da68d-55e6-49b5-aea8-53c2f7ddbc60",
     "40ed8b89-5bcc-48da-9ccf-48b4d825a908": "474c8b3b-1d79-4881-ac9e-8eacd96c1d88",
     "d562c864-7de6-4de1-8891-c7739c1bbc09": "f9d31dde-34b7-4525-92e7-ae7dcf4db520",
@@ -653,4 +653,4 @@ duplicates_manual_correction_mapping = {  # based on feedbacks from countries
 
 entry_errors = [
     "76bfed1d-fbf9-415c-9a68-a9cda24ad231"
-]  # based on feedbacks from countries
+]  # based on feedbacks from countries (see --> https://docs.google.com/spreadsheets/d/1C_fjS4LL-H2NP55VCRVyMFl9EfCeLFsG/edit?gid=343881162#gid=343881162)

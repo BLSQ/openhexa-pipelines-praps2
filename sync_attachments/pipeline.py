@@ -8,10 +8,11 @@ from openhexa.sdk import current_run, parameter, pipeline, workspace
 from openhexa.toolbox.kobo import Api
 
 SURVEYS = [
-    "marches_a_betail",
-    "parcs_de_vaccination",
-    "points_d_eau",
-    "unites_veterinaires",
+    "fiche_simplifiee_infrastructures",
+    # "marches_a_betail", # replaced by fiche_simplifiee_infrastructures
+    # "parcs_de_vaccination", # replaced by fiche_simplifiee_infrastructures
+    # "points_d_eau", # replaced by fiche_simplifiee_infrastructures
+    # "unites_veterinaires", # replaced by fiche_simplifiee_infrastructures
     "fourrage_cultive",
     "gestion_durable_des_paysages",
     "activites_generatrices_de_revenus",
@@ -83,6 +84,8 @@ def download_attachments(input_dir: Path, output_dir: Path):
 
         # multiple attachments can be stored in the same cell
         for attachments in df["_attachments"]:
+            if not attachments:
+                continue
             attachments = json.loads(attachments)
             for attachment in attachments:
                 url = attachment.get("download_url")

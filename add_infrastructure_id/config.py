@@ -51,6 +51,13 @@ infra_type_col_mali = "_19_Types_d_infrastructures"
 collector_function_col_mali = "_3_Fonction_du_collecteur"
 collector_contact_col_mali = "_4_Contact_t_l_phonique_du_collecteur"
 controller_contact_col_mali = "_7_Contact_t_l_phonique_du_contr_leur"
+investigated_contact_col_mali = "_10_Contact_t_l_phonique_du_contr_leur"
+country_col_mali = "_11_Pays"
+work_type_col_mali = "_29_Quelle_est_la_na_des_travaux_r_alis_s"
+work_duration_col_mali = "_32_Quelle_est_la_du_s_travaux_en_mois_"
+implementation_level_col_mali = "_33_Pr_cisez_le_niveau_de_mise"
+reception_date_col_mali = "_41_Si_r_ception_d_f_er_la_date_voir_PV"
+work_completion_rate_col_mali = "_42_Pr_cisez_le_taux_la_date_de_l_enqu_te"
 
 collector_function_code_mapping_mali = {
     "assistant_en_s_e": 1,
@@ -77,6 +84,35 @@ infra_type_mapping_mali = {
     "cloture_uapia": 13,
     "magasin_de_stock_de_consomable_de_labora": 13,
     None: 13,
+}
+
+work_type_code_mapping_mali = {
+    "construction": 1,
+    "r_habilitation": 2,
+}
+
+work_duration_code_mapping_mali = {
+    "45jour": "2",
+    "Pas encore commence": "0",
+}
+
+implementation_level_code_mapping_mali = {
+    "pas_encore_d_marr": 1,
+    "travaux_en_cours__progression_normale": 2,
+    "travaux_en_cours__retard": 3,
+    "travaux_en_arr_t": 4,
+    "r_ception_provisoire_avec_reserve": 5,
+    "r_ception_provisoire_sans_reserve": 6,
+    "r_ception_d_finitive": 7,
+}
+
+work_completion_rate_code_mapping = {
+    "pas_commenc___0": None,
+    "moins_de_25": 1,
+    "entre_25_et_50": 2,
+    "entre_50_et_75": 3,
+    "plus_de_75": 4,
+    "achev___100": 7,
 }
 
 all_forms_cols_mapping = {
@@ -574,12 +610,99 @@ all_forms_cols_mapping = {
     "_5_Nom_contr_leur": "",
     "_6_Fonction_du_contr_leur": "",
     "_7_Contact_t_l_phonique_du_contr_leur": "",
+    "_2_Fonction_du_collecteur_001_002": "IDUV7",
+    "_9_Fonction_de_l_enqu_t": "IDUV8",
+    "_10_Contact_t_l_phonique_du_contr_leur": "IDUV9",
+    "group_wx1xk15": "",
+    "_11_Pays": "LUV1",
+    "region": "LUV2",
+    "cercle": "LUV3",
+    "commune": "LUV4",
+    "_15_Localit": "LUV5",
     "_16_Coordonn_es_g_og_de_l_aire_d_abattage": "LUV6",
     "__16_Coordonn_es_g_og_de_l_aire_d_abattage_latitude": "_LUV6_latitude",
     "__16_Coordonn_es_g_og_de_l_aire_d_abattage_longitude": "_LUV6_longitude",
     "__16_Coordonn_es_g_og_de_l_aire_d_abattage_altitude": "_LUV6_altitude",
     "__16_Coordonn_es_g_og_de_l_aire_d_abattage_precision": "_LUV6_precision",
+    "group_yw28r74": "",
+    "_17a_Prendre_la_phot_de_l_infrastructure": "LUV7a",
+    "_17a_Prendre_la_phot_de_l_infrastructure_URL": "LUV7a_URL",
+    "_17b_Prendre_la_phot_de_l_infrastructure": "LUV7b",
+    "_17b_Prendre_la_phot_de_l_infrastructure_URL": "LUV7b_URL",
+    "_17c_Prendre_la_phot_de_l_infrastructure": "LUV7c",
+    "_17c_Prendre_la_phot_de_l_infrastructure_URL": "LUV7c_URL",
+    "_17d_Prendre_la_phot_de_l_infrastructure": "LUV7d",
+    "_17d_Prendre_la_phot_de_l_infrastructure_URL": "LUV7d_URL",
+    "_18_Date_de_prise_des_photos": "",
+    "group_dv4ft63": "",
     "_19_Types_d_infrastructures": "",
+    "_19_Quelles_sont_les_sources_d": "",
+    "_20_Quel_est_le_statut_de_l_infrastructure": "",
+    "_21_Si_co_financemen_rtenaires_financiers": "",
+    "_22_Quel_est_le_co_t_de_r_alisation_FCFA": "",
+    "_23_en_cas_de_co_fin_r_le_PRAPS_2_en_FCFA": "",
+    "_23_L_aire_d_abattage_dispose_": "",
+    "_25_Si_non_pourquoi": "",
+    "_26_quel_est_l_effec_des_membre_du_comit": "",
+    "_27_Combien_de_femme_mbres_comporte_t_il_": "",
+    "_28A_De_combien_de_m_le_bureau_du_comit_": "",
+    "_28B_Quel_est_l_effe_du_bureau_du_comit_": "",
+    "_27C_Quels_sont_les_postes_occ": "",
+    "_28D_Si_autre_pr_cisez": "",
+    "_28E_Le_comit_est_i_nt_pour_v_rification": "",
+    "_28F_Les_membres_du_voir_PV_de_r_union": "",
+    "_28G_Quelles_sont_vo_ctionnement_du_comit": "",
+    "_28H_De_quels_renfor_s_et_responsabilit_s": "",
+    "_28I_Quelles_sont_vo_du_comit_de_gestion": "",
+    "group_zj9me34": "",
+    "_29_Quelle_est_la_na_des_travaux_r_alis_s": "STMB1",
+    "_30_D_crire_quelques_fications_techniques": "",
+    "_31_Quelle_est_la_da_ncement_des_travaux_": "STMB3",
+    "_32_Quelle_est_la_du_s_travaux_en_mois_": "STMB4",
+    "_33_Pr_cisez_le_niveau_de_mise": "STMB5",
+    "_34_Si_pas_encore_d_marr_pourquoi": "",
+    "_35_Si_retard_pourquoi": "",
+    "_36_Quelles_sont_les_les_travaux_temps": "",
+    "_37_Si_arr_t_pourquoi": "",
+    "_38_Quelles_sont_les_r_lancer_les_travaux": "",
+    "_39_Si_r_ception_pro_er_la_date_voir_PV": "STMB11",
+    "_40_Si_r_ception_pro_er_la_date_voir_PV": "STMB12",
+    "_41_Si_r_ception_d_f_er_la_date_voir_PV": "STMB13",
+    "_42_Pr_cisez_le_taux_la_date_de_l_enqu_te": "STMB15",
+    "_43_Le_site_est_il_confront_a": "",
+    "_44_Si_oui_lesquels": "",
+    "_45_Quelles_sont_les_re_pour_les_resoudre": "",
+    "group_eq6iz00": "",
+    "_46_Selon_vous_le_comit_de_g": "",
+    "_47_Si_non_pourquoi": "",
+    "_48_La_mise_en_place_services_de_l_levage": "",
+    "_49_L_accord_convent_isation_r_partition": "",
+    "_50_Si_non_pourquoi": "",
+    "_51_Le_d_marrage_des_sur_l_infrastructure": "",
+    "group_en1yb15": "",
+    "_52_Selon_vous_l_aire_d_abatt": "",
+    "_53_Si_non_pourquoi": "",
+    "_54_A_combien_peut_o_de_l_infrastructure": "",
+    "_55_Le_site_est_il_confront_a": "",
+    "_56_Si_oui_lesquels": "",
+    "_57_Quelles_sont_les_re_pour_les_resoudre": "",
+    "group_ar25y78": "",
+    "_58_Tous_les_travail_es_sur_le_Genre_VBG": "",
+    "_59_Le_chantier_disp_tion_collective_EPC": "",
+    "_60_Les_travailleurs_on_individuelle_EPI": "",
+    "_61_Le_site_est_il_couvert_par": "",
+    "_62_Si_non_pourquoi": "",
+    "_63_A_quel_niveau_les_plainte": "",
+    "_63a_Si_autre_pr_cisez": "",
+    "_64_Quels_sont_les_types_de_pl": "",
+    "_65_Si_plaintes_sens_laintes_enregistr_es": "",
+    "_66_Si_plaintes_sens_t_protocoles_tablis": "",
+    "_67_Quel_est_le_nomb_Bas_es_sur_le_Genre": "",
+    "_68_Si_plaintes_non_laintes_enregistr_es": "",
+    "_69_Si_plaintes_non_t_protocoles_tablis": "",
+    "_70_Quels_autres_eff_ulation_b_n_ficiaire": "",
+    "_71_Quels_autres_eff_ulation_b_n_ficiaire": "",
+    "_72_Quels_sont_vos_o_commentaires_de_fin": "CONFSITE2",
 }
 
 name_label_mapping = {

@@ -141,6 +141,59 @@ for file in config.INPUT_FILES:
             pl.col(config.controller_contact_col_mali)
             .cast(pl.Utf8)
             .alias(config.controller_contact_col_mali),
+            pl.col(config.investigated_contact_col_mali)
+            .cast(pl.Utf8)
+            .alias(config.investigated_contact_col_mali),
+            pl.col(config.reception_date_col_mali)
+            .cast(pl.Date)
+            .alias(config.reception_date_col_mali),
+        )
+
+        # add capital to first letter of country name
+        df = df.with_columns(
+            pl.col(config.country_col_mali)
+            .str.to_titlecase()
+            .alias(config.country_col_mali)
+        )
+
+        # encode values for work type col
+        df = df.with_columns(
+            pl.col(config.work_type_col_mali)
+            .replace(config.work_type_code_mapping_mali, default=None)
+            .alias(config.work_type_col_mali)
+        )
+
+        # set work duration col to int
+        df = df.with_columns(
+            pl.col(config.work_duration_col_mali)
+            .replace(config.work_duration_code_mapping_mali)
+            .alias(config.work_duration_col_mali)
+        )
+        df = df.with_columns(
+            pl.when(pl.col(config.work_duration_col_mali).is_not_null())
+            .then(
+                pl.col(config.work_duration_col_mali)
+                .cast(pl.Utf8)
+                .str.replace_all(r"mois", "")
+                .str.strip_chars()
+                .cast(pl.Int64)
+            )
+            .otherwise(pl.lit(None))
+            .alias(config.work_duration_col_mali)
+        )
+
+        # encode values for implementation level col
+        df = df.with_columns(
+            pl.col(config.implementation_level_col_mali)
+            .replace(config.implementation_level_code_mapping_mali, default=None)
+            .alias(config.implementation_level_col_mali)
+        )
+
+        # encode values for work completion rate col
+        df = df.with_columns(
+            pl.col(config.work_completion_rate_col_mali)
+            .replace(config.work_completion_rate_code_mapping, default=None)
+            .alias(config.work_completion_rate_col_mali)
         )
 
     # adjust column names to the simplified form (only keep columns whose values is not "")
@@ -205,15 +258,18 @@ file_path_validation = (
 )
 
 with xlsxwriter.Workbook(file_path_validation) as wb:
-    for country in df_validation["20) Pays"].unique():
-        if country is None:
-            df_country = df_validation.filter(pl.col("20) Pays").is_null())
-            sheet_name = "Mali_HCDR"
-        else:
-            df_country = df_validation.filter(pl.col("20) Pays") == country)
-            sheet_name = country
-        df_country.write_excel(workbook=wb, worksheet=sheet_name)
+    # Mali_HCDR
+    df_hcdr = df_validation.filter(pl.col("8) Nature de l'indicateur") == 2)
+    if len(df_hcdr) > 0:
+        df_hcdr.write_excel(workbook=wb, worksheet="Mali_HCDR")
+        print(f"Successfully processed {len(df_hcdr)} records for Mali_HCDR.")
 
+    # Per-country sheets (CDR only)
+    for country in df_validation["20) Pays"].unique():
+        df_country = df_validation.filter(
+            (pl.col("20) Pays") == country) & (pl.col("8) Nature de l'indicateur") == 1)
+        )
+        df_country.write_excel(workbook=wb, worksheet=country)
         print(f"Successfully processed {len(df_country)} records for {country}.")
 
 print(f"Successfully saved all sheets to {file_path_validation}")

@@ -529,11 +529,14 @@ def split_consolidated(df: pl.DataFrame) -> Dict[str, pl.DataFrame]:
 
 
 def conform_to_legacy_schema(df: pl.DataFrame, name: str) -> pl.DataFrame:
-    """Rename, null-fill and reorder columns so `df` matches the pre-consolidation
-    column shape of output table `name` (see legacy_schema.py).
+    """Rename, null-fill and reorder columns so `df` matches the fixed column shape
+    expected of output table `name` (see legacy_schema.py).
 
-    `name`s with no legacy predecessor (infrastructures_hors_cdr) only go through the
-    rename step, if `COLUMN_RENAMES` defines one.
+    For the 4 CDR tables that's their pre-consolidation schema; for
+    `infrastructures_hors_cdr` (no historical predecessor) it's a frozen snapshot of
+    whatever GeoServer's layer for it was built against -- see legacy_schema.py. A
+    `name` with no `LEGACY_COLUMNS` entry at all only goes through the rename step, if
+    `COLUMN_RENAMES` defines one.
     """
     rename_map = {}
     for src, dst in COLUMN_RENAMES.get(name, {}).items():
@@ -548,6 +551,17 @@ def conform_to_legacy_schema(df: pl.DataFrame, name: str) -> pl.DataFrame:
         rename_map[src] = dst
     if rename_map:
         df = df.rename(rename_map)
+
+    # "uuid" isn't a real field of any survey -- it's one of infrastructures_hors_cdr's
+    # frozen GeoServer-mandated attributes (LEGACY_COLUMNS, see legacy_schema.py). Alias
+    # it from Kobo's own reliable "_uuid" before the generic null-fill below, so it gets
+    # real data instead of being silently null-filled like a genuinely-missing column.
+    if (
+        name == "infrastructures_hors_cdr"
+        and "uuid" not in df.columns
+        and "_uuid" in df.columns
+    ):
+        df = df.with_columns(pl.col("_uuid").alias("uuid"))
 
     legacy_cols = LEGACY_COLUMNS.get(name)
     if legacy_cols is None:

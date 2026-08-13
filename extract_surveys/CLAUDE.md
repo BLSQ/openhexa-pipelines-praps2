@@ -251,17 +251,28 @@ in `marches_a_betail`, `LPE1..LPE5/LPE7` in `points_d_eau`, `LVAC1..LVAC6` in
 
 Two literal constants, read at import time only (never re-derived at run time):
 
-- **`LEGACY_COLUMNS`**: `{table_name: {column_name: polars_dtype}}`, in original column order.
-  Derived from the last-generated reference parquet for each of the 4 tables (schema + order only,
-  via `pl.scan_parquet(...).collect_schema()`) — this is the mandatory, Geonode-facing column set.
-  One deliberate deviation: `infrastructure_id` is typed `pl.String` in every table, not the
-  `pl.UInt32` found in the reference parquets — see §7's case-collision rule for why.
+- **`LEGACY_COLUMNS`**: `{table_name: {column_name: polars_dtype}}`, in original column order —
+  the mandatory column set for each output table, enforced by `conform_to_legacy_schema()`. For the
+  4 CDR tables it's derived from the last-generated reference parquet for each (schema + order only,
+  via `pl.scan_parquet(...).collect_schema()`), and is Geonode-facing: their `PRAPS2_*` GeoServer
+  layers were built against that pre-migration schema. `infrastructures_hors_cdr` has no such
+  predecessor, but its own GeoServer layer (`PRAPS2_Infrastructures_Hors_CDR`) pins a fixed
+  feature-type definition too — a frozen snapshot of that table's exact columns from whenever the
+  layer was first published. Read directly off GeoServer's "Edit Layer" > "Feature Type Details"
+  page (91 columns), after GeoServer's transform kept raising `IllegalArgumentException: Original
+  feature type does not have a property named <X>` for whichever column that run's data happened to
+  be missing — this table's columns otherwise vary run to run, since Kobo omits any column no
+  submission in the batch answered, and unlike the 4 CDR tables it had no fixed schema to fall back
+  on. One entry in it, `uuid`, isn't a real field of this survey; `conform_to_legacy_schema()`
+  special-cases it, aliasing from Kobo's own reliable `_uuid` instead of null-filling it.
+  One deliberate deviation shared by all 5 tables: `infrastructure_id` is typed `pl.String`, not the
+  `pl.UInt32` found in the 4 CDR reference parquets — see §7's case-collision rule for why.
 - **`COLUMN_RENAMES`**: `{table_name: {consolidated_field: legacy_field}}`. Derived from
   `all_forms_cols_mapping` in the sibling `add_infrastructure_id` pipeline's `config.py` (read-only
   input, never modified from here) — that dict maps legacy field name → consolidated field name;
   the entries here are the inverse. Identity mappings and empty (no-consolidated-equivalent)
-  targets are dropped. `infrastructures_hors_cdr` has no `LEGACY_COLUMNS` entry (no predecessor
-  table) and an empty `COLUMN_RENAMES` entry — it keeps plain consolidated field names throughout.
+  targets are dropped. `infrastructures_hors_cdr` has an empty `COLUMN_RENAMES` entry — it keeps
+  plain consolidated field names throughout (only its `LEGACY_COLUMNS` entry is non-trivial).
 
 If either source needs re-deriving in the future (e.g. a 5th legacy table gets added), the method
 is: read the reference parquet's schema for the mandatory column set, invert

@@ -584,6 +584,7 @@ LEGACY_COLUMNS: Dict[str, Dict[str, pl.DataType]] = {
         "STMB11": pl.Date,
         "IGPE1a": pl.String,
         "HCDR": pl.String,
+        "HCDRa": pl.String,
         "IGPE0": pl.String,
         "IGPE0a": pl.String,
         "IDT_DUP_COUNT": pl.String,

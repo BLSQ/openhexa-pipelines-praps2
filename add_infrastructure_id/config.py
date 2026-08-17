@@ -86,6 +86,12 @@ infra_type_mapping_mali = {
     None: 13,
 }
 
+infra_type_other_mali_cleaning = {
+    "latrine_et_habri_vaccin": "Latrines et abri de vaccination",
+    "cloture_uapia": "Clôture d'UAPIA",
+    "magasin_de_stock_de_consomable_de_labora": "Magasin de stockage de consommables de laboratoire",
+}
+
 work_type_code_mapping_mali = {
     "construction": 1,
     "r_habilitation": 2,
@@ -153,6 +159,7 @@ all_forms_cols_mapping = {
     # IGPE2/6
     # IGPE2a
     "HCDR": "HCDR",
+    "HCDRa": "HCDRa",
     "TYPE_ACRONYM": "TYPE_ACRONYM",
     # BASE_ID
     # MATCHING_ID

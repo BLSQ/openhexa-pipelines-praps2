@@ -100,16 +100,26 @@ for file in config.INPUT_FILES:
     #     pl.col(f"_{geoloc_col}_longitude").alias("longitude"),
     # )
 
-    # Add extra cols from the new Kobo form (TYPE, CDR, HCDR)
+    # Add extra cols from the new Kobo form (TYPE, CDR, HCDR, HCDRa)
     if "FICHE AIRE D'ABATTAGE, ETAL, MAGASINS, LATRINES_MALI" in file:
         df = df.with_columns(
             pl.lit(2).alias("TYPE"),  # HCDR
             pl.lit(None).cast(pl.Int32).alias("CDR"),  # CDR col --> None
         )
+        other_types = [k for k, v in config.infra_type_mapping_mali.items() if v == 13]
         df = df.with_columns(
             pl.col(config.infra_type_col_mali)
             .replace_strict(config.infra_type_mapping_mali, default=None)
-            .alias("HCDR")
+            .alias("HCDR"),
+            pl.when(pl.col(config.infra_type_col_mali).is_in(other_types))
+            .then(
+                pl.col(config.infra_type_col_mali)
+                .cast(pl.Utf8)
+                .replace(config.infra_type_other_mali_cleaning)
+            )
+            .otherwise(None)
+            .cast(pl.Utf8)
+            .alias("HCDRa"),
         )
 
     else:
@@ -125,6 +135,7 @@ for file in config.INPUT_FILES:
                         "TYPE_ACRONYM"
                     ),
                     pl.lit(None).cast(pl.Int64).alias("HCDR"),
+                    pl.lit(None).cast(pl.Utf8).alias("HCDRa"),
                 )
 
     # adjust column types in mali form to match with other forms

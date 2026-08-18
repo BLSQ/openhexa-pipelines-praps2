@@ -49,6 +49,9 @@ HCDR_ACRONYMS = {
     "SAS",
     "CCP",
     "AUTRE",
+    "LHV",
+    "CU",
+    "MSCL",
 }
 
 

@@ -1,49 +1,69 @@
-INPUT_FILES = [
-    "add_infrastructure_id/inputs/FICHE_POINT_DEAU15_04_2024.xlsx",
-    "add_infrastructure_id/inputs/FICHE_PARC_DE_VACCINATION15_04_2024.xlsx",
-    "add_infrastructure_id/inputs/FICHE_MARCHES_A_BETAIL.xlsx",
-    "add_infrastructure_id/inputs/FICHE_UNITE_VETERINAIRE.xlsx",
-    "add_infrastructure_id/inputs/FICHE AIRE D'ABATTAGE, ETAL, MAGASINS, LATRINES_MALI.xlsx",
-]
-INPUT_FILES_OTHER = [
-    "add_infrastructure_id/inputs/FICHE AIRE D'ABATTAGE, ETAL, MAGASINS, LATRINES_MALI.xlsx",
-]
-OUTPUT_PATH = "add_infrastructure_id/outputs/"
-KOBO_BASE_URL = "https://kf.kobotoolbox.org"
-API_TOKEN = "77b1fc042633c4fbc87ce357ecebf183b877d5f8"
-SUBMISSION_URL = f"{KOBO_BASE_URL}/submission"
-FORM_ID_STRING = "aRZ43wRerX8pCdo4XrKw4n"
-ASSET_SCHEMA_URL = f"{KOBO_BASE_URL}/api/v2/assets/{FORM_ID_STRING}.json"
-FORM_VERSION = "2404150901"
-HEADERS = {"Authorization": f"Token {API_TOKEN}"}
+from openhexa.sdk import workspace
+import os
+from pathlib import Path
+from dotenv import load_dotenv
 
-geoloc_cols_mapping = {
-    "FICHE_POINT_DEAU15_04_2024": "LPE7",
-    "FICHE_PARC_DE_VACCINATION15_04_2024": "LVAC6",
-    "FICHE_MARCHES_A_BETAIL": "LMB6",
-    "FICHE_UNITE_VETERINAIRE": "LUV6",
-    "FICHE AIRE D'ABATTAGE, ETAL, MAGASINS, LATRINES_MALI": "_16_Coordonn_es_g_og_de_l_aire_d_abattage",
+# set up env (for local testing only)
+dotenv_path = Path(__file__).parent / ".env"
+if dotenv_path.exists():
+    load_dotenv(dotenv_path)
+os.environ["HEXA_WORKSPACE"] = os.getenv("HEXA_WORKSPACE")
+os.environ["HEXA_SERVER_URL"] = os.getenv("HEXA_SERVER_URL")
+os.environ["HEXA_TOKEN"] = os.getenv("HEXA_TOKEN")
+
+# Kobo Connector Instances
+connection_cdr = workspace.custom_connection("kobo_api")
+kobo_connector_slug_cdr = {
+    "url": connection_cdr.url,
+    "token": connection_cdr.token,
 }
 
-# province_cols_mapping = {
-#     "FICHE_POINT_DEAU15_04_2024": "LPE3",
-#     "FICHE_PARC_DE_VACCINATION15_04_2024": "LVAC3",
-#     "FICHE_MARCHES_A_BETAIL": "LMB3",
-#     "FICHE_UNITE_VETERINAIRE": "LUV3",
-# }
-
-infra_acronym_mapping = {
-    "FICHE_MARCHES_A_BETAIL": "MB",
-    "FICHE_PARC_DE_VACCINATION15_04_2024": "PV",
-    "FICHE_POINT_DEAU15_04_2024": "PE",
-    "FICHE_UNITE_VETERINAIRE": "UV",
+connection_hcdr = workspace.custom_connection("kobo-api-mali")
+kobo_connector_slug_hcdr = {
+    "url": connection_hcdr.url,
+    "token": connection_hcdr.token,
 }
 
-infra_type_mapping = {
-    "FICHE_MARCHES_A_BETAIL": 1,
-    "FICHE_PARC_DE_VACCINATION15_04_2024": 2,
-    "FICHE_POINT_DEAU15_04_2024": 3,
-    "FICHE_UNITE_VETERINAIRE": 4,
+# Legacy surveys specs
+LEGACY_SURVEYS = {
+    "points_d_eau": {
+        "kobo_name": "FICHE POINT D'EAU15_04_2024",
+        "clean_name": "points_d_eau",
+        "account": "cdr",
+        "geoloc_col": "LPE7",
+        "acronym": "PE",
+        "cdr_code": 3,
+    },
+    "parcs_de_vaccination": {
+        "kobo_name": "FICHE PARC DE VACCINATION15_04_2024",
+        "clean_name": "parcs_de_vaccination",
+        "account": "cdr",
+        "geoloc_col": "LVAC6",
+        "acronym": "PV",
+        "cdr_code": 2,
+    },
+    "marches_a_betail": {
+        "kobo_name": "FICHE MARCHES A BETAIL",
+        "clean_name": "marches_a_betail",
+        "account": "cdr",
+        "geoloc_col": "LMB6",
+        "acronym": "MB",
+        "cdr_code": 1,
+    },
+    "unites_veterinaires": {
+        "kobo_name": "FICHE UNITE VETERINAIRE",
+        "clean_name": "unites_veterinaires",
+        "account": "cdr",
+        "geoloc_col": "LUV6",
+        "acronym": "UV",
+        "cdr_code": 4,
+    },
+    "infrastructures_hors_cdr_mali": {
+        "kobo_name": "FICHE AIRE D'ABATTAGE, ETAL, MAGASINS, LATRINES PRAPS- 2_22122023",
+        "clean_name": "infrastructures_hors_cdr_mali",
+        "account": "hcdr",
+        "geoloc_col": "_16_Coordonn_es_g_og_de_l_aire_d_abattage",
+    },
 }
 
 infra_type_col_mali = "_19_Types_d_infrastructures"

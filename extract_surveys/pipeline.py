@@ -34,7 +34,7 @@ CONSOLIDATED_SURVEY = (
 SURVEYS = LEGACY_SURVEYS + [CONSOLIDATED_SURVEY]
 
 
-@pipeline("extract-surveys", name="extract-surveys")
+@pipeline(name="extract-surveys")
 @parameter(
     "output_dir",
     name="Dossier de sortie",

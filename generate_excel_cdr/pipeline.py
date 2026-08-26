@@ -5,7 +5,7 @@ import xlsxwriter
 from openhexa.sdk import current_run, parameter, pipeline, workspace
 
 
-@pipeline("generate-excel-cdr", name="generate-excel-cdr")
+@pipeline(name="generate-excel-cdr")
 @parameter(
     "targets_fp",
     name="Cibles CDR",

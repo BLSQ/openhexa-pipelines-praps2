@@ -5,7 +5,7 @@ import io
 import config
 
 
-@pipeline("update_geopoints")
+@pipeline(name="update_geopoints")
 def update_geopoints():
     """
     This pipeline updates the live database of geopoints underlying the simplified KoboToolbox form

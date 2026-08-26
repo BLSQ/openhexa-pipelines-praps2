@@ -9,7 +9,7 @@ from openhexa.sdk import current_run, parameter, pipeline, workspace
 from openhexa.sdk.utils import Environment, get_environment
 
 
-@pipeline("compute-indicators", name="compute-indicators")
+@pipeline(name="compute-indicators")
 @parameter(
     "survey_dir",
     name="Dossier d'entrée (fiches)",

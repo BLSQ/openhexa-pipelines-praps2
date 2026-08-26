@@ -25,7 +25,7 @@ SURVEYS = [
 MALI_FORM_UID = "a4LDskBmypjPahmmZqrpmQ"
 
 
-@pipeline("sync-attachments", name="sync-attachments")
+@pipeline(name="sync-attachments")
 @parameter(
     "input_dir",
     name="Dossier d'entrée",

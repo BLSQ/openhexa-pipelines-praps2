@@ -1,11 +1,11 @@
-name: Push "compute indicators" pipeline
+name: Push "consolidate legacy surveys" pipeline
 
 on:
   workflow_dispatch:
   push:
     paths:
-      - ".github/workflows/push-compute-indicators.yml"
-      - "compute_indicators/**"
+      - ".github/workflows/push-consolidate-legacy-surveys.yml"
+      - "consolidate_legacy_surveys/**"
 
 jobs:
   deploy:
@@ -26,8 +26,8 @@ jobs:
           token: ${{ secrets.OH_TOKEN }}
       - name: Push pipeline to OpenHEXA
         run: |
-          openhexa pipelines push compute_indicators \
-            -c compute-indicators \
+          openhexa pipelines push consolidate_legacy_surveys \
+            -c consolidate-legacy-surveys \
             -n ${{ github.sha }} \
             -l "https://github.com/BLSQ/openhexa-pipelines-praps2/commit/${{ github.sha }}" \
             --yes

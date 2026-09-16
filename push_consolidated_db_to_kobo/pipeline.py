@@ -183,8 +183,8 @@ def push_records(
         else:
             error_count += 1
             current_run.log_warning(
-                f"[{idx + 1}/{len(records)}] Failed (status {response.status_code}): "
-                f"{response.text}"
+                f"[{idx + 1}/{len(records)}] Failed for {clean_data['meta/instanceID']} "
+                f"(status {response.status_code}): {response.text}"
             )
 
         time.sleep(pacing_seconds)

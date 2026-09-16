@@ -184,3 +184,7 @@ workspace.yaml
 
 # image
 *.png
+
+# Claude support
+validation/
+CLAUDE.md

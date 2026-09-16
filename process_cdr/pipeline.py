@@ -43,20 +43,24 @@ def process_cdr(
     # process 2026-2027 CDR
     cdr_2026_2027_raw = import_file(
         f"{cdr_dir}/cdr/raw",
-        "PRAPS-2 Projet de CDR révisé - décembre 2025 VF 191225.xlsx",
+        "Projet de CDR revise - CDR CONSOLDE_23_JUIN CILLS PAYS.xlsx",
     )
     cdr_2026_2027_df = process_2026_2027_CDR(cdr_2026_2027_raw)
     cdr_2026_2027_df = assign_indicator_codes(cdr_2026_2027_df, indicators_metadata)
 
     # create cdr results df
     cdr_2025_results_df = clean_results_values(cdr_2025_df)
+    cdr_2026_results_df = clean_results_values(cdr_2026_2027_df)
+    combined_results_df = pl.concat(
+        [cdr_2025_results_df, cdr_2026_results_df], how="diagonal_relaxed"
+    )
 
     # create combined target df
     cdr_2026_2027_targets_df = clean_target_values(cdr_2026_2027_df)
     combined_targets_df = combine_targets(cdr_targets_old, cdr_2026_2027_targets_df)
 
     # save outputs
-    save_output(cdr_2025_results_df, f"{cdr_dir}/cdr/processed", "cdr_results_2025")
+    save_output(combined_results_df, f"{cdr_dir}/cdr/processed", "cdr_results")
     save_output(combined_targets_df, f"{cdr_dir}/cdr/processed", "CDR_Targets_v2")
     push_to_db(combined_targets_df, "CDR_Targets_v2")
 
@@ -252,7 +256,8 @@ def process_2026_2027_CDR(cdr_2026_2027_raw: pl.DataFrame) -> pl.DataFrame:
             pl.col("column_5").alias("country"),
             pl.col("column_6").alias("target_value_2021"),
             pl.col("column_10").alias("target_value_2026"),
-            pl.col("column_11").alias("target_value_2027"),
+            pl.col("column_11").alias("result_value_2026"),
+            pl.col("column_13").alias("target_value_2027"),
             pl.col("original_order"),
         ]
     ).with_columns(
@@ -290,6 +295,7 @@ def process_2026_2027_CDR(cdr_2026_2027_raw: pl.DataFrame) -> pl.DataFrame:
         "target_value_2026",
         "target_value_2027",
     ]
+    result_cols = ["result_value_2026"]
 
     df_transformed = df_full.with_columns(
         [
@@ -301,29 +307,40 @@ def process_2026_2027_CDR(cdr_2026_2027_raw: pl.DataFrame) -> pl.DataFrame:
             .str.extract(r"(\d+\.?\d*)")
             .cast(pl.Float64, strict=False)
             .alias(col)
-            for col in target_cols
+            for col in target_cols + result_cols
         ]
     )
 
+    index_cols = [
+        "indicator_name_original",
+        "unit_original",
+        "country",
+        "indicator_code_original",
+        "original_order",
+    ]
+
     # convert from wide to long format
-    df_transformed = df_transformed.unpivot(
+    df_targets = df_transformed.unpivot(
         on=target_cols,
-        index=[
-            "indicator_name_original",
-            "unit_original",
-            "country",
-            "indicator_code_original",
-            "original_order",
-        ],
+        index=index_cols,
         variable_name="year",
         value_name="value",
     )
-    df_transformed = df_transformed.with_columns(
+    df_targets = df_targets.with_columns(
         pl.col("year").str.extract(r"(\d{4})").cast(pl.Int32).alias("year")
     )
+    df_targets = df_targets.with_columns(pl.lit("target").alias("value_type"))
 
-    # create value type col
-    df_transformed = df_transformed.with_columns(pl.lit("target").alias("value_type"))
+    df_results = df_transformed.unpivot(
+        on=result_cols,
+        index=index_cols,
+        variable_name="year",
+        value_name="value",
+    )
+    df_results = df_results.with_columns(pl.lit(2026).cast(pl.Int32).alias("year"))
+    df_results = df_results.with_columns(pl.lit("result").alias("value_type"))
+
+    df_transformed = pl.concat([df_targets, df_results], how="diagonal_relaxed")
 
     current_run.log_info(f"Transformed {df_transformed.height} rows.")
 

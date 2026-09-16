@@ -28,7 +28,6 @@ kobo_connector_slug_hcdr = {
 LEGACY_SURVEYS = {
     "points_d_eau": {
         "kobo_name": "FICHE POINT D'EAU15_04_2024",
-        "clean_name": "points_d_eau",
         "account": "cdr",
         "geoloc_col": "LPE7",
         "acronym": "PE",
@@ -36,7 +35,6 @@ LEGACY_SURVEYS = {
     },
     "parcs_de_vaccination": {
         "kobo_name": "FICHE PARC DE VACCINATION15_04_2024",
-        "clean_name": "parcs_de_vaccination",
         "account": "cdr",
         "geoloc_col": "LVAC6",
         "acronym": "PV",
@@ -44,7 +42,6 @@ LEGACY_SURVEYS = {
     },
     "marches_a_betail": {
         "kobo_name": "FICHE MARCHES A BETAIL",
-        "clean_name": "marches_a_betail",
         "account": "cdr",
         "geoloc_col": "LMB6",
         "acronym": "MB",
@@ -52,7 +49,6 @@ LEGACY_SURVEYS = {
     },
     "unites_veterinaires": {
         "kobo_name": "FICHE UNITE VETERINAIRE",
-        "clean_name": "unites_veterinaires",
         "account": "cdr",
         "geoloc_col": "LUV6",
         "acronym": "UV",
@@ -60,7 +56,6 @@ LEGACY_SURVEYS = {
     },
     "infrastructures_hors_cdr_mali": {
         "kobo_name": "FICHE AIRE D'ABATTAGE, ETAL, MAGASINS, LATRINES PRAPS- 2_22122023",
-        "clean_name": "infrastructures_hors_cdr_mali",
         "account": "hcdr",
         "geoloc_col": "_16_Coordonn_es_g_og_de_l_aire_d_abattage",
     },
@@ -190,20 +185,20 @@ all_forms_cols_mapping = {
     "latitude": "latitude",
     "longitude": "longitude",
     # fields only in fiche simplifié
-    # STMB2 --> 14) Quel est le nom de l'entreprise en charge des travaux?
-    # STMB0 --> 15) Est-ce la première collecte de données sur ce site ?
-    # IDT --> 16) Saisie de l’identifiant de l’infrastructure
-    # STMB01 --> 17) Nom de l'organisme en charge du contrôle des travaux
-    # STMB02 --> 18) Nom et prénom du représentant légal ou du responsable du bureau de contrôle
-    # STMB03 --> 19) Contact du représentant légal du bureau de contrôle
+    # STMB2 --> Quel est le nom de l'entreprise en charge des travaux?
+    # STMB0 --> Est-ce la première collecte de données sur ce site ?
+    # IDT --> Saisie de l’identifiant de l’infrastructure
+    # STMB01 --> Nom de l'organisme en charge du contrôle des travaux
+    # STMB02 --> Nom et prénom du représentant légal ou du responsable du bureau de contrôle
+    # STMB03 --> Contact du représentant légal du bureau de contrôle
     # CONFSITE --> Observations sur le site
-    # CONFSITE1 --> 25) Quelle est la qualité globale des travaux réalisés?
-    # DATTROL --> 26) Quelle est la date de la dernière visite du Bureau de contrôle ?
-    # CONFSITE2 --> 27) Quels sont vos commentaires généraux sur l'exécution des travaux sur le chantier?
-    # STMB16 --> 28) Tracker le couloir
+    # CONFSITE1 --> Quelle est la qualité globale des travaux réalisés?
+    # DATTROL --> Quelle est la date de la dernière visite du Bureau de contrôle ?
+    # CONFSITE2 --> Quels sont vos commentaires généraux sur l'exécution des travaux sur le chantier?
+    # STMB16 --> Tracker le couloir
     # STMB17 --> distance(${STMB16})
     # STMB18 --> ${STMB17}div1000
-    # note4 --> 29) La distance trackée est ${STMB18} Kilomètre (s)
+    # note4 --> La distance trackée est ${STMB18} Kilomètre (s)
     # fields in FICHE_POINT_DEAU
     "IDPE1": "IDUV1",
     "IDPE2": "IDUV2",

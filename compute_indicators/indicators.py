@@ -842,12 +842,19 @@ def iri_16(
             parcs_de_vaccination.filter(pl.col("IGVAC9") == "Oui")
             .with_columns(
                 pl.when(
-                    (pl.col("IGVAC11") > 0)
-                    & (pl.col("IGVAC12") >= (pl.col("IGVAC11") * 0.15))
+                    (pl.col("IGVAC11").cast(pl.Float64, strict=False) > 0)
                     & (
-                        (pl.col("IGVAC12A").list.contains("Président (e)"))
-                        | (pl.col("IGVAC12A").list.contains("Sécrétaire (principal-e)"))
-                        | (pl.col("IGVAC12A").list.contains("Trésorier (ère)"))
+                        pl.col("IGVAC12").cast(pl.Float64, strict=False)
+                        >= (pl.col("IGVAC11").cast(pl.Float64, strict=False) * 0.15)
+                    )
+                    & role_matches(
+                        parcs_de_vaccination,
+                        "IGVAC12A",
+                        [
+                            "Président (e)",
+                            "Sécrétaire (principal-e)",
+                            "Trésorier (ère)",
+                        ],
                     )
                 )
                 .then(1)
@@ -857,7 +864,7 @@ def iri_16(
             .select(
                 [
                     pl.lit("IRI-16").alias("indicator_code"),
-                    pl.col("DATE").alias("date"),
+                    pl.col("DATE").cast(pl.Date, strict=False).alias("date"),
                     pl.lit(6).alias("level"),
                     pl.col("LVAC1").alias("country"),
                     pl.col("LVAC2").alias("region"),
@@ -880,12 +887,19 @@ def iri_16(
             gestion_durable.filter(pl.col("CRDURA11") == "Oui")
             .with_columns(
                 pl.when(
-                    (pl.col("CRDURA13") > 0)
-                    & (pl.col("CRDURA14") >= (pl.col("CRDURA13") * 0.15))
+                    (pl.col("CRDURA13").cast(pl.Float64, strict=False) > 0)
                     & (
-                        (pl.col("CRDURA17").list.contains("Président (e)"))
-                        | (pl.col("CRDURA17").list.contains("Sécrétaire (principal-e)"))
-                        | (pl.col("CRDURA17").list.contains("Trésorier (ère)"))
+                        pl.col("CRDURA14").cast(pl.Float64, strict=False)
+                        >= (pl.col("CRDURA13").cast(pl.Float64, strict=False) * 0.15)
+                    )
+                    & role_matches(
+                        gestion_durable,
+                        "CRDURA17",
+                        [
+                            "Président (e)",
+                            "Sécrétaire (principal-e)",
+                            "Trésorier (ère)",
+                        ],
                     )
                 )
                 .then(1)
@@ -895,7 +909,7 @@ def iri_16(
             .select(
                 [
                     pl.lit("IRI-16").alias("indicator_code"),
-                    pl.col("DATE").alias("date"),
+                    pl.col("DATE").cast(pl.Date, strict=False).alias("date"),
                     pl.lit(6).alias("level"),
                     pl.col("LODURA1").alias("country"),
                     pl.col("LODURA2").alias("region"),
@@ -918,12 +932,19 @@ def iri_16(
             points_d_eau.filter(pl.col("IGPE6") == "Oui")
             .with_columns(
                 pl.when(
-                    (pl.col("IGPE10") > 0)
-                    & (pl.col("IGPE11") >= (pl.col("IGPE10") * 0.15))
+                    (pl.col("IGPE10").cast(pl.Float64, strict=False) > 0)
                     & (
-                        (pl.col("IGPE11A3").list.contains("Président (e)"))
-                        | (pl.col("IGPE11A3").list.contains("Sécrétaire (principal-e)"))
-                        | (pl.col("IGPE11A3").list.contains("Trésorier (ère)"))
+                        pl.col("IGPE11").cast(pl.Float64, strict=False)
+                        >= (pl.col("IGPE10").cast(pl.Float64, strict=False) * 0.15)
+                    )
+                    & role_matches(
+                        points_d_eau,
+                        "IGPE11A3",
+                        [
+                            "Président (e)",
+                            "Sécrétaire (principal-e)",
+                            "Trésorier (ère)",
+                        ],
                     )
                 )
                 .then(1)
@@ -933,7 +954,7 @@ def iri_16(
             .select(
                 [
                     pl.lit("IRI-16").alias("indicator_code"),
-                    pl.col("DATE").alias("date"),
+                    pl.col("DATE").cast(pl.Date, strict=False).alias("date"),
                     pl.lit(6).alias("level"),
                     pl.col("LPE1").alias("country"),
                     pl.col("LPE2").alias("region"),
@@ -956,12 +977,19 @@ def iri_16(
             marches_a_betail.filter(pl.col("IGMB5") == "Oui")
             .with_columns(
                 pl.when(
-                    (pl.col("IGMB7") > 0)
-                    & (pl.col("IGMB8") >= (pl.col("IGMB7") * 0.15))
+                    (pl.col("IGMB7").cast(pl.Float64, strict=False) > 0)
                     & (
-                        (pl.col("IGMBA").list.contains("Président (e)"))
-                        | (pl.col("IGMBA").list.contains("Sécrétaire (principal-e)"))
-                        | (pl.col("IGMBA").list.contains("Trésorier (ère)"))
+                        pl.col("IGMB8").cast(pl.Float64, strict=False)
+                        >= (pl.col("IGMB7").cast(pl.Float64, strict=False) * 0.15)
+                    )
+                    & role_matches(
+                        marches_a_betail,
+                        "IGMBA",
+                        [
+                            "Président (e)",
+                            "Sécrétaire (principal-e)",
+                            "Trésorier (ère)",
+                        ],
                     )
                 )
                 .then(1)
@@ -971,7 +999,7 @@ def iri_16(
             .select(
                 [
                     pl.lit("IRI-16").alias("indicator_code"),
-                    pl.col("DATE").alias("date"),
+                    pl.col("DATE").cast(pl.Date, strict=False).alias("date"),
                     pl.lit(6).alias("level"),
                     pl.col("LMB1").alias("country"),
                     pl.col("LMB2").alias("region"),
@@ -1266,6 +1294,15 @@ def reg_int_6(indicateurs_regionaux: pl.DataFrame) -> pl.DataFrame:
     logging.info(f"Reg Int 6: computed {len(df)} values")
 
     return df
+
+
+def role_matches(df: pl.DataFrame, col: str, roles: list) -> pl.Expr:
+    """Check whether `col` contains any of `roles`, whether it decoded as a
+    List(String) (normal Kobo select-multiple) or collapsed to a scalar String.
+    """
+    if df.schema.get(col) == pl.List(pl.String):
+        return pl.any_horizontal([pl.col(col).list.contains(r) for r in roles])
+    return pl.col(col).is_in(roles)
 
 
 def load_praps1_data(fname: str) -> pl.DataFrame:
@@ -1666,19 +1703,23 @@ def integrate_cdr_data(df_kobo: pl.DataFrame, cdr_dir: str) -> pl.DataFrame:
     df_kobo = df_kobo.filter(~pl.col("date").is_in([2026, 2027]))
 
     # concatenate Kobo and CDR data
-    df_cdr_2025 = load_cdr_data(cdr_dir, "cdr_results_2025.parquet")
-    df_cdr_2025 = df_cdr_2025.drop(pl.col("date")).rename({"year": "date"})
+    df_cdr_results = load_cdr_data(cdr_dir, "cdr_results.parquet")
+    df_cdr_results = (
+        df_cdr_results.filter(pl.col("year").is_in([2025, 2026, 2027]))
+        .drop(pl.col("date"))
+        .rename({"year": "date"})
+    )
     df_kobo = df_kobo.with_columns(pl.lit("kobo").alias("data_source"))
     df_kobo = df_kobo.with_columns(pl.lit("unchanged").alias("indicator_status"))
-    combined_df = pl.concat([df_kobo, df_cdr_2025], how="diagonal_relaxed")
+    combined_df = pl.concat([df_kobo, df_cdr_results], how="diagonal_relaxed")
 
     # flag kobo entries that overlap with cdr
     combined_df = combined_df.with_columns(
         pl.when(
             (pl.col("data_source") == "kobo")
-            & (pl.col("indicator_code").is_in(df_cdr_2025["indicator_code"]))
-            & (pl.col("date").is_in(df_cdr_2025["date"]))
-            & (pl.col("country").is_in(df_cdr_2025["country"]))
+            & (pl.col("indicator_code").is_in(df_cdr_results["indicator_code"]))
+            & (pl.col("date").is_in(df_cdr_results["date"]))
+            & (pl.col("country").is_in(df_cdr_results["country"]))
         )
         .then(True)
         .otherwise(False)

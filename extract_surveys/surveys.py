@@ -623,3 +623,26 @@ def concatenate_snapshots(
         )
 
     return pl.concat(snapshots)
+
+
+def apply_field_labels(df: pl.DataFrame, fields_mapping: pl.DataFrame) -> pl.DataFrame:
+    """Rename df's columns from their field name to their Kobo label, falling back to
+    the field name when no label is set (e.g. calculate fields). Columns not present in
+    fields_mapping (Kobo system columns, columns added by transform_survey()) keep their
+    current name. Guards against two fields colliding on the same label.
+    """
+    labels = {
+        row["name"]: row["label"] or row["name"]
+        for row in fields_mapping.iter_rows(named=True)
+    }
+    renames = {}
+    seen = {}
+    for col in df.columns:
+        label = labels.get(col, col)
+        if label in seen:
+            label = f"{label} ({col})"
+        seen[label] = col
+        if label != col:
+            renames[col] = label
+
+    return df.rename(renames)

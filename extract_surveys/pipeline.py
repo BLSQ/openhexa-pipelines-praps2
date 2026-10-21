@@ -33,6 +33,34 @@ CONSOLIDATED_SURVEY = (
 
 SURVEYS = LEGACY_SURVEYS + [CONSOLIDATED_SURVEY]
 
+DATASETS = [
+    ("parcs_de_vaccination", "Parcs de vaccination", "parcs-de-vaccination-a6fbd3"),
+    ("unites_veterinaires", "Unités vétérinaires", "unites-veterinaires-05ee52"),
+    ("marches_a_betail", "Marchés à Bétail", "marches-a-betail-286942"),
+    ("points_d_eau", "Points d'Eau", "points-d-eau-0935a6"),
+    (
+        "infrastructures_hors_cdr",
+        "Infrastructures Hors CDR",
+        "infrastructures-hors-cdr",
+    ),
+    ("fourrage_cultive", "Fourrages Cultivés", "fourrages-cultives-b6f422"),
+    (
+        "gestion_durable_des_paysages",
+        "Superficies Sous Pratique de Gestion Durable des Paysages",
+        "superficies-sous-pratiq-460c3f",
+    ),
+    (
+        "activites_generatrices_de_revenus",
+        "Activités Génératrices de Revenus",
+        "activites-generatrices-cadd93",
+    ),
+    (
+        "sous_projets_innovants",
+        "Sous-Projets Innovants",
+        "sous-projets-innovants-7c3877",
+    ),
+]
+
 
 @pipeline(name="extract-surveys")
 @parameter(
@@ -60,7 +88,7 @@ def extract_surveys(output_dir: str, push_to_db: bool, overwrite: bool):
     con = workspace.custom_connection("kobo_api")
     output_dir = Path(workspace.files_path, output_dir)
 
-    for subdir in ("raw", "surveys", "geo", "metadata", "snapshots"):
+    for subdir in ("raw", "surveys", "geo", "metadata", "snapshots", "exports"):
         os.makedirs(Path(output_dir, subdir), exist_ok=True)
 
     if overwrite:
@@ -77,6 +105,7 @@ def extract_surveys(output_dir: str, push_to_db: bool, overwrite: bool):
 
     if get_environment() == Environment.CLOUD_PIPELINE:
         update_datasets(output_dir, wait=task2)
+        export_consolidated_dataset(output_dir, wait=task2)
 
 
 @extract_surveys.task
@@ -263,42 +292,15 @@ def push(src_dir: str, wait: bool) -> bool:
     return True
 
 
+def get_md5(url: str):
+    """Get MD5 hash of a dataset file."""
+    r = requests.head(url)
+    r.raise_for_status()
+    return r.headers["ETag"].replace('"', "")
+
+
 @extract_surveys.task
 def update_datasets(src_dir: str, wait: bool) -> bool:
-    def get_md5(url: str):
-        """Get MD5 hash of a dataset file."""
-        r = requests.head(url)
-        r.raise_for_status()
-        return r.headers["ETag"].replace('"', "")
-
-    DATASETS = [
-        ("parcs_de_vaccination", "Parcs de vaccination", "parcs-de-vaccination-a6fbd3"),
-        ("unites_veterinaires", "Unités vétérinaires", "unites-veterinaires-05ee52"),
-        ("marches_a_betail", "Marchés à Bétail", "marches-a-betail-286942"),
-        ("points_d_eau", "Points d'Eau", "points-d-eau-0935a6"),
-        (
-            "infrastructures_hors_cdr",
-            "Infrastructures Hors CDR",
-            "infrastructures-hors-cdr",
-        ),
-        ("fourrage_cultive", "Fourrages Cultivés", "fourrages-cultives-b6f422"),
-        (
-            "gestion_durable_des_paysages",
-            "Superficies Sous Pratique de Gestion Durable des Paysages",
-            "superficies-sous-pratiq-460c3f",
-        ),
-        (
-            "activites_generatrices_de_revenus",
-            "Activités Génératrices de Revenus",
-            "activites-generatrices-cadd93",
-        ),
-        (
-            "sous_projets_innovants",
-            "Sous-Projets Innovants",
-            "sous-projets-innovants-7c3877",
-        ),
-    ]
-
     # split_consolidated outputs share one consolidated fields file (there is no
     # per-survey one for them anymore); standalone legacy surveys keep their own.
     consolidated_fields_file = Path(
@@ -344,6 +346,62 @@ def update_datasets(src_dir: str, wait: bool) -> bool:
 
         for src_file in src_files:
             new_version.add_file(src_file.as_posix(), src_file.name)
+
+    return True
+
+
+def get_or_create_dataset(name: str, description: str):
+    for dataset in workspace.list_datasets():
+        if dataset.name == name:
+            return dataset
+    return workspace.create_dataset(name=name, description=description)
+
+
+@extract_surveys.task
+def export_consolidated_dataset(src_dir: str, wait: bool) -> bool:
+    """Publish the consolidated survey's raw (duplicate-preserving) data, with field
+    labels as column headers, so it can be reviewed and downloaded as CSV/XLSX.
+    """
+    _, consolidated_name = CONSOLIDATED_SURVEY
+
+    src_file = Path(src_dir, "surveys", f"{consolidated_name}_with_duplicates.parquet")
+    if not src_file.exists():
+        current_run.log_warning(f"Cannot find raw data for survey {consolidated_name}")
+        return True
+
+    df = pl.read_parquet(src_file)
+    fields_mapping = pl.read_parquet(
+        Path(src_dir, "metadata", f"{consolidated_name}_fields.parquet")
+    )
+    df = surveys.apply_field_labels(df, fields_mapping)
+
+    csv_file = Path(src_dir, "exports", f"{consolidated_name}_raw.csv")
+    xlsx_file = Path(src_dir, "exports", f"{consolidated_name}_raw.xlsx")
+    df.write_csv(csv_file)
+    df.write_excel(xlsx_file)
+
+    dataset = get_or_create_dataset(
+        name="Fiche simplifiée infrastructures - données brutes",
+        description=(
+            "Données brutes de la fiche simplifiée infrastructures (consolidée), "
+            "avant nettoyage et dédoublonnage, avec les intitulés de champs Kobo "
+            "comme en-têtes de colonnes."
+        ),
+    )
+
+    src_files = [csv_file, xlsx_file]
+    src_hashes = [hashlib.md5(open(f, "rb").read()).hexdigest() for f in src_files]
+    latest = dataset.latest_version
+    if latest:
+        dst_hashes = [get_md5(f.download_url) for f in latest.files]
+        if set(src_hashes) == set(dst_hashes):
+            return True
+
+    new_version = dataset.create_version(
+        name=datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    )
+    for src_file in src_files:
+        new_version.add_file(src_file.as_posix(), src_file.name)
 
     return True
 

@@ -154,6 +154,63 @@ SURVEYS_WITH_GEO_ASSIGNED_ID = {
     "activites_generatrices_de_revenus",
 }
 
+# Mauritania infrastructures manually identified by the client as the same physical
+# infrastructure recorded under different INFRASTRUCTURE_ID values (GPS drift between
+# visits placed them on opposite sides of a rounding boundary), listed in
+# https://docs.google.com/spreadsheets/d/14wfFulAMacfe3f-whB6HVslC2B35pqHe/edit?gid=376935112#gid=376935112
+# ("Situation infrastructures-Nov-2026 MAURITANIE.xlsx"). Maps each submission's _uuid
+# to that file's DUPLICATE_id column, so transform_survey() can force them onto a
+# shared infrastructure_id and let drop_duplicates() keep only the most recent one.
+MAURITANIA_DUPLICATE_ID_MAPPING = {
+    "8fd6ece9-1e45-4551-954b-0571c8a5b0f0": "MAURITANIA_DUP_1",
+    "1de8fccc-62c8-4878-9b13-0786538a5f52": "MAURITANIA_DUP_1",
+    "67643fc2-126d-4f74-a31e-c54ca0a6cacb": "MAURITANIA_DUP_1",
+    "ffded361-19b6-4363-b810-e981e975c128": "MAURITANIA_DUP_2",
+    "5e2cf537-3365-4137-b480-cc156e80b018": "MAURITANIA_DUP_2",
+    "3ddef912-816d-4586-9d0b-ec967b8ab7b5": "MAURITANIA_DUP_3",
+    "c87843f8-81c1-4139-8d1e-49380cf21d79": "MAURITANIA_DUP_3",
+    "50886d2c-7853-4abe-8008-368c697ef89a": "MAURITANIA_DUP_4",
+    "43e652d0-84a7-4c18-a1c0-92e41cb18236": "MAURITANIA_DUP_4",
+    "e76bdd5c-3635-4580-b433-7ea6010ebc15": "MAURITANIA_DUP_5",
+    "8a6f32c8-ea54-4a72-94f5-3502534d4c4c": "MAURITANIA_DUP_5",
+    "62915158-b658-4b8c-9d83-0251202353dd": "MAURITANIA_DUP_8",
+    "2a59097c-f6d2-41bd-ad02-ed81c5651293": "MAURITANIA_DUP_8",
+    "10145295-e9ee-45c3-b4b8-7ead5069ecbc": "MAURITANIA_DUP_9",
+    "66e7fbc0-2db1-4d84-abc5-1970bea21e84": "MAURITANIA_DUP_9",
+    "d9401b07-f603-4d40-8b23-e4cce841d11d": "MAURITANIA_DUP_10",
+    "b09d6361-991e-490b-abec-3eb0bbfb0afe": "MAURITANIA_DUP_10",
+    "920d89a4-e0ea-4560-93ea-7e8513d8e109": "MAURITANIA_DUP_11",
+    "8ea8decf-a29f-4a0a-beef-e28f1423f46b": "MAURITANIA_DUP_11",
+    "48587be9-f1c5-43bd-b9b1-1bc502dea2a2": "MAURITANIA_DUP_12",
+    "fb363b35-028f-4b8b-bfc8-798b10fafb31": "MAURITANIA_DUP_12",
+    "679b89b9-6d46-4215-aef2-479be7277c77": "MAURITANIA_DUP_13",
+    "56f4d3c0-6db5-4b42-b6ef-df195df2eb00": "MAURITANIA_DUP_13",
+    "9decb644-e126-4509-95d1-98c17744e395": "MAURITANIA_DUP_15",
+    "df960472-975a-4db6-95d5-4d1b17b6b29b": "MAURITANIA_DUP_15",
+    "94504ca7-17c3-4715-b86d-69a7ef2e5b92": "MAURITANIA_DUP_16",
+    "4f602c34-4eca-4a7d-9446-9383235c89fd": "MAURITANIA_DUP_16",
+    "19003118-efde-41ec-ac8b-bb3aca3b4a37": "MAURITANIA_DUP_18",
+    "eb41feb8-39aa-4bb7-932d-ea95863ab1ef": "MAURITANIA_DUP_18",
+    "b4c23b80-f6fc-4cd8-ac14-31b33cd161f2": "MAURITANIA_DUP_19",
+    "13ad13ce-0253-4a4e-b927-6529a3468fe2": "MAURITANIA_DUP_19",
+    "0fffcff1-86e4-468e-9d21-539b30695358": "MAURITANIA_DUP_20",
+    "b4974366-e141-468d-b031-aa61cd141313": "MAURITANIA_DUP_20",
+    "eed3d8e4-40ba-4b5d-b436-ca5dac5dbf8b": "MAURITANIA_DUP_21",
+    "3ff14e8e-7dd9-4a65-b3a7-3b8b0b279b79": "MAURITANIA_DUP_21",
+    "01e8c099-7aae-4313-87e1-80dd1ea32bf0": "MAURITANIA_DUP_22",
+    "7a1611d8-317b-4b3b-9be9-2d510aeb957d": "MAURITANIA_DUP_22",
+    "b4db07f5-e94e-4642-8cf8-8ce7dab1f5d9": "MAURITANIA_DUP_22",
+    "d63fc0ad-33f2-4afc-a395-19ae9876bf89": "MAURITANIA_DUP_24",
+    "c45bbf24-5c0c-4e83-b3de-6e12ad706774": "MAURITANIA_DUP_24",
+    "9d064b4d-89eb-4f09-94a1-fba69877b012": "MAURITANIA_DUP_25",
+    "d35bfef4-a32d-4257-9d63-b8192018e125": "MAURITANIA_DUP_25",
+    "5887fe3e-ab25-4b4e-a71e-99fd2eac376f": "MAURITANIA_DUP_25",
+    "ace43075-9197-46e4-abeb-a9cbee77632d": "MAURITANIA_DUP_26",
+    "209ddea2-8e7e-4a65-8607-9d16cb67272d": "MAURITANIA_DUP_26",
+    "5dae6171-8243-4056-a927-7c8e31063e71": "MAURITANIA_DUP_27",
+    "37c8d61f-ef45-40d4-97cf-9053623b0ba7": "MAURITANIA_DUP_27",
+}
+
 
 def haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """Compute haversine distance (in km) between two points."""
@@ -302,8 +359,12 @@ def drop_duplicates(
     standalone legacy surveys (fourrage_cultive, sous_projets_innovants,
     gestion_durable_des_paysages, activites_generatrices_de_revenus) never did, so there
     is nothing to dedup on; skip rather than raise.
+
+    Ties on `column_date` (e.g. two submissions collected the same day) are broken by
+    `_submission_time`, a Kobo system field always present and never user-editable --
+    the one actually submitted most recently wins.
     """
-    df = df.sort(column_date, descending=True)
+    df = df.sort([column_date, "_submission_time"], descending=True)
     if column_unique_id not in df.columns:
         current_run.log_info(
             f"'{column_unique_id}' not in this survey's columns, skipping deduplication"
@@ -403,6 +464,16 @@ def transform_survey(df: pl.DataFrame, name: str):
     # Canonicalize the identifier column to lowercase "infrastructure_id" everywhere.
     if "INFRASTRUCTURE_ID" in df.columns:
         df = df.rename({"INFRASTRUCTURE_ID": "infrastructure_id"})
+
+    # Force known Mauritania duplicates (same physical infrastructure, but recorded
+    # under different INFRASTRUCTURE_ID values -- see MAURITANIA_DUPLICATE_ID_MAPPING)
+    # onto a shared id, so drop_duplicates() collapses them like any other duplicate.
+    if name == "fiche_simplifiee_infrastructures" and "infrastructure_id" in df.columns:
+        df = df.with_columns(
+            infrastructure_id=pl.col("_uuid").replace_strict(
+                MAURITANIA_DUPLICATE_ID_MAPPING, default=pl.col("infrastructure_id")
+            )
+        )
 
     # rename geographic columns with standard names
     if name in GEO_COLUMNS:

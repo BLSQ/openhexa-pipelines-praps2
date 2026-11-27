@@ -188,3 +188,6 @@ workspace.yaml
 # Claude support
 validation/
 CLAUDE.md
+
+# Pipeline local
+upload_deleted_submissions/

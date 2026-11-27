@@ -164,7 +164,9 @@ def _write_survey_outputs(
 
     geo = to_geodataframe(
         df_no_duplicates.with_columns(
-            pl.col("_geolocation").str.json_decode(dtype=pl.List(pl.Float64))
+            pl.col("_geolocation")
+            .str.json_decode(dtype=pl.List(pl.Float64))
+            .fill_null([None, None])
         )
     )
     geo = geo[geo.geometry.notna()]

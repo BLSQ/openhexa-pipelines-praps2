@@ -376,16 +376,26 @@ def _add_url_prefix(fname: str) -> str:
 
 def transform_survey(df: pl.DataFrame, name: str):
     # parse _validation_status and _geolocation columns
+    if "_validation_status" not in df.columns:
+        df = df.with_columns(pl.lit(None).alias("_validation_status"))
+    if "_geolocation" not in df.columns:
+        df = df.with_columns(pl.lit(None, dtype=pl.String).alias("_geolocation"))
     df = df.with_columns(
         [
             pl.col("_validation_status")
-            .map_elements(lambda x: x.get("label"), return_dtype=str)
+            .map_elements(
+                lambda x: x.get("label") if x is not None else None, return_dtype=str
+            )
             .alias("validation_status"),
             pl.col("_geolocation")
-            .map_elements(lambda x: x[0] if all(x) else None, return_dtype=float)
+            .map_elements(
+                lambda x: x[0] if x is not None and all(x) else None, return_dtype=float
+            )
             .alias("LATITUDE"),
             pl.col("_geolocation")
-            .map_elements(lambda x: x[1] if all(x) else None, return_dtype=float)
+            .map_elements(
+                lambda x: x[1] if x is not None and all(x) else None, return_dtype=float
+            )
             .alias("LONGITUDE"),
         ]
     )

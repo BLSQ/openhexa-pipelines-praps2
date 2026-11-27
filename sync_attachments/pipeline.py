@@ -180,10 +180,18 @@ def _download_mali_attachments(output_dir: Path, dst_files: set):
         )
         return
 
-    api = Api(url=con.url)
-    api.authenticate(token=con.token)
-    survey = api.get_survey(MALI_FORM_UID)
-    submissions = survey.get_data()
+    try:
+        api = Api(url=con.url)
+        api.authenticate(token=con.token)
+        survey = api.get_survey(MALI_FORM_UID)
+        submissions = survey.get_data()
+    except Exception as e:
+        current_run.log_warning(
+            f"Could not reach the Mali/HCDR form ({MALI_FORM_UID}) -- skipping "
+            f"attachment download for it: {e}"
+        )
+        return
+
     current_run.log_info(
         f"Connected to Mali KoboToolbox account at url: {con.url} "
         f"({len(submissions)} submissions)"
@@ -224,6 +232,13 @@ def download_attachments(input_dir: Path, output_dir: Path):
         if not df_fname.exists():
             current_run.log_warning(f"File not found for survey `{survey}`")
         df = pl.read_parquet(df_fname)
+
+        if "_attachments" not in df.columns:
+            current_run.log_warning(
+                f"`_attachments` column not found for survey `{survey}` -- no "
+                "submission in this batch has any attachment, skipping"
+            )
+            continue
 
         # multiple attachments can be stored in the same cell
         for attachments in df["_attachments"]:
